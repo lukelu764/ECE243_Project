@@ -6445,17 +6445,11 @@ void update_player_position(struct player *p)
     p->y += p->dy;
 
     // Clamp position to window bounds
-    if (p->x < WINDOW_START_X) {
-        p->x = WINDOW_START_X;
-    } else if (p->x > WINDOW_END_X) {
-        p->x = WINDOW_END_X;
-    }
+    if (p->x < WINDOW_START_X) {    p->x = WINDOW_START_X;} 
+    else if (p->x > WINDOW_END_X) { p->x = WINDOW_END_X;}
 
-    if (p->y < WINDOW_START_Y) {
-        p->y = WINDOW_START_Y;
-    } else if (p->y > WINDOW_END_Y) {
-        p->y = WINDOW_END_Y;
-    }
+    if (p->y < WINDOW_START_Y) {    p->y = WINDOW_START_Y;} 
+    else if (p->y > WINDOW_END_Y) { p->y = WINDOW_END_Y;}
 }
 
 void update_player_movement(struct player *p, int new_dx, int new_dy)
@@ -6483,13 +6477,13 @@ void read_keyboard_input(struct player *p)
     }
 }
 
+
+//Maybe change the shape to like a random splotter in the future, but for now just a solid circle
 void shoot(struct player *p)
 {
-    // Fill a solid circle around the player with their color
-    // and save it to the background array for permanent change
     for (int dy = -SHOOT_RADIUS; dy <= SHOOT_RADIUS; dy++) {
         for (int dx = -SHOOT_RADIUS; dx <= SHOOT_RADIUS; dx++) {
-            // Check if point is within circle using distance formula
+
             if (dx * dx + dy * dy <= SHOOT_RADIUS * SHOOT_RADIUS) {
                 int px = p->x + dx;
                 int py = p->y + dy;
@@ -6571,20 +6565,14 @@ void draw_player(struct player *p)
     }
 }
 
-void clear_screen(void)
-{
-    for (int y = 0; y < 240; y++)
-        for (int x = 0; x < 320; x++)
-            plot_pixel(x, y, 0x0000);
-}
 
 void restore_background_area(int x_min, int x_max, int y_min, int y_max)
 {
     // Clamp to window bounds
-    if (x_min < WINDOW_START_X) x_min = WINDOW_START_X;
-    if (x_max > WINDOW_END_X) x_max = WINDOW_END_X;
-    if (y_min < WINDOW_START_Y) y_min = WINDOW_START_Y;
-    if (y_max > WINDOW_END_Y) y_max = WINDOW_END_Y;
+    if (x_min < WINDOW_START_X) {x_min = WINDOW_START_X;}
+    if (x_max > WINDOW_END_X) {x_max = WINDOW_END_X;}
+    if (y_min < WINDOW_START_Y) {y_min = WINDOW_START_Y;}
+    if (y_max > WINDOW_END_Y) {y_max = WINDOW_END_Y;}
     
     for (int y = y_min; y <= y_max; y++) {
         for (int x = x_min; x <= x_max; x++) {
@@ -6593,6 +6581,8 @@ void restore_background_area(int x_min, int x_max, int y_min, int y_max)
     }
 }
 
+//this resets a square of where the player was to the background colour
+//kinda naive but like lazy method and fast enough
 void restore_old_player_area(struct player *p)
 {
     int size = PLAYER_RADIUS + 15 + 2;  // radius + crosshair + thickness
@@ -6613,9 +6603,6 @@ void plot_pixel(int x, int y, short int line_color)
     *one_pixel_address = line_color;
 }
 
-//temp code for testing-----------------------------------
-short int Buffer1[240][512];
-short int Buffer2[240][512];
 
 void wait_for_vsync(void)
 {
@@ -6628,7 +6615,6 @@ void wait_for_vsync(void)
         ;
 }
 
-// Draw background from the background array to the screen (only within window)
 void draw_background(void)
 {
     for (int y = 0; y < SCREEN_H; y++) {
@@ -6641,6 +6627,8 @@ void draw_background(void)
 int main(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
+    short int Buffer1[240][512];
+    short int Buffer2[240][512];
 
     short int current_frame[SCREEN_H][SCREEN_W];
     short int next_frame[SCREEN_H][SCREEN_W];
