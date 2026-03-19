@@ -1,4 +1,7 @@
+// CHANGE GAME STATE AFTER CERTAIN AMOUNTS OF TIME
+// this version counts for 5 seconds
 // #include "address_map_niosv.h"
+// last saved 3/18 9:00
 
 #define clock_rate 100000000
 #define quarter_clock clock_rate / 4
@@ -17,28 +20,12 @@ void KEY_ISR(void);
 volatile int counter = 0;  // binary counter to be displayed
 volatile int digit = 0;    // decimal digit to be displayed
 volatile int KEY_dir = 1;  // digit counter direction
+volatile int counter2 = 0; 
+volatile int game_state = 0; // game running = 0, game pause = 1
+
 // 7-segment codes for digits 0, 1, ..., 9
 char bit_codes[] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x67};
 
-/***************************************************************************
-25 * This program demonstrates use of interrupts with assembly code. It first
-26 * sets up interrupts from three devices: the Nios V machine timer, an FPGA
-27 * interval timer, and the pushbutton KEY port. Next, the program makes a
-28 * software interrupt occur. Finally, the program loops while responding to
-29 * interrupts from the timers and the pushbutton KEY port.
-30 *
-31 * The interrupt service routine for the software interrupt turns on most
-32 * of the red lights in the LEDR port.
-33 *
-34 * The interrupt service routine for the Nios V machine timer causes the
-35 * main program to display a binary counter on the LEDR red lights.
-36 *
-37 * The interrupt service routine for the interval timer causes the main
-38 * program to display a decimal counter on HEX0. The counter either
-39 * increases or decreases, in the range 0 to 9. When a KEY is pressed, the
-40 * direction of counting on HEX0 is reversed.
-41
-*****************************************************************************/
 int main(void) {
   /* Declare volatile pointers to I/O registers (volatile means that the
  44 * accesses will always go to the memory (I/O) address */
@@ -71,18 +58,14 @@ int main(void) {
 
   while (1) {
     *HEX3_HEX0_ptr = bit_codes[digit];  // display in decimal
-	  
-	// after a certain count turn all the LEDs off
-	// 
-	if (counter > 0b100000){
-		*LEDR_ptr = 0;
-	}
-	
-	else{ 
-	    *LEDR_ptr = counter;
 
-	}  
-	
+    // after a certain count turn all the LEDs off
+    //
+    if (counter2 > 5) {
+      game_state = 1;
+    }
+	  
+	*LEDR_ptr = game_state; 
   }
 }
 
@@ -138,6 +121,8 @@ void itimer_ISR(void) {
   *timer_ptr = 0;               // clear the interrupt
   new_digit = digit + KEY_dir;  // inc/dec the digit
   if (new_digit < 10 && new_digit > -1) digit = new_digit;  // decimal (0 to 9)
+
+  counter2 = counter2 + 1; 
 }
 
 // KEY port interrupt service routine
