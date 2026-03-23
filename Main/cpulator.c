@@ -1,8 +1,8 @@
 // Main Program CPULator Version
-// Last saved 3/23 11:26 AM
+// Last saved 3/23 4:23 PM
 
 // Latest changes
-// added game state - disables game controls when timer ends
+// added restart
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8549,9 +8549,9 @@ unsigned short background[76800] = {
 // --- PROGRAM --- //
 
 // --- Libraries --- //
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h> 
 
 // --- DEFINING CONSTANTS --- //
 #define SCREEN_W 320
@@ -8560,17 +8560,17 @@ unsigned short background[76800] = {
 #define SW_BASE 0xFF200040
 
 // Window boundaries
-#define WINDOW_START_X 22
-#define WINDOW_END_X 296
-#define WINDOW_START_Y 37
-#define WINDOW_END_Y 177
+#define WINDOW_START_X 24
+#define WINDOW_END_X 295
+#define WINDOW_START_Y 38
+#define WINDOW_END_Y 175
 
 // Player drawing parameters
 #define PLAYER_RADIUS 15
 #define SHOOT_RADIUS 7
 
-// --- GLOBAL VARIABLES --- // 
-bool gameEnd = false; 
+// --- GLOBAL VARIABLES --- //
+bool gameEnd = false;
 
 // --- STRUCTS --- //
 struct player {
@@ -8603,9 +8603,12 @@ void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr);
 void draw_player(struct player* p, short* back_buf_ptr);
 
 // Background restore functions
-void restore_background_area(int x_min, int x_max, int y_min, int y_max, short* back_buf_ptr);
+void restore_background_area(int x_min, int x_max, int y_min, int y_max,
+                             short* back_buf_ptr);
 void restore_old_player_area(struct player* p, short* back_buf_ptr);
 
+// Random Events
+void clearPaintEvent(short* back_buf_ptr);
 
 // --- DRAWING FUNCTIONS --- //
 // Plot single pixel
@@ -8637,6 +8640,7 @@ void draw_background(short* back_buf_ptr) {
 }
 
 // Draw progress bar
+// The progress goes from 77 to 242, 242 - 77 = 165
 volatile double progressx = 77;
 
 void updateProgressBar(short* back_buf_ptr) {
@@ -8720,6 +8724,12 @@ void read_switch_input(struct player* p, short* back_buf_ptr) {
   // Check if switch 0 is pressed (bit 0)
   if (sw_value & 0x1) {
     shoot(p, back_buf_ptr);
+  }
+
+  // Check if switch 2 is pressed
+  if (sw_value & 2) {
+    // Restart the game
+    restart(back_buf_ptr);
   }
 }
 
@@ -8814,7 +8824,37 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr) {
   restore_background_area(x_min, x_max, y_min, y_max, back_buf_ptr);
 }
 
+// --- RANDOM EVENTS --- //
+volatile int* mtime_ptr = (int*)0xFF202100;
 
+void chooseRandomEvent() {
+  // Generate random numbers between 0 to 5
+
+  int seed = *(mtime_ptr);
+  srand(seed);
+  int randomEventNumber = rand() % 6;
+  printf("%d", randomEventNumber);
+}
+
+void clearPaintEvent(short* back_buf_ptr) {
+  for (int y = 38; y < 176; y++) {
+    for (int x = 23; x < 295; x++) {
+      background[y * SCREEN_W + x] = 0xFFFF;
+    }
+  }
+}
+
+// --- CALCULATE AREA --- //
+// Display the score of each player on hex?
+
+// --- Restart --- //
+void restart(short* back_buf_ptr) {
+  clearPaintEvent(back_buf_ptr);
+  clearPaintEvent(pixel_buffer_start);
+  draw_background(back_buf_ptr);
+  progressx = 77;
+  gameEnd = true;
+}
 
 // --- INTERRUPTS --- // MIGHT NOT NEED
 #define clock_rate 100000000
@@ -8911,12 +8951,22 @@ int main(void) {
   __asm__ volatile("csrs mstatus, %0" ::"r"(mstatus_value));
 
   // -- MAIN GAME LOOP -- //
-  while (!gameEnd) {
+  while (1) {
     // If the game is over light up an LED
     if (progressx >= 242) {
       *LEDR_ptr = 0x1;
-      gameEnd = true; 
+      // gameEnd = true;
     }
+
+    // Trigger random events at specific times
+    if (progressx == 160) {
+      chooseRandomEvent();
+      *LEDR_ptr = 0x10;
+    }
+
+    // if (progressx > 158 && progressx < 160){
+    //   chooseRandomEvent();
+    // }
 
     // --- PLAYER UPDATES --- //
     // Read keyboard input for player 1
@@ -8945,7 +8995,5 @@ int main(void) {
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
 }
-	
-	
-	
+
 	
