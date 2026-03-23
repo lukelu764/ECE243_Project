@@ -1,33 +1,16 @@
 // Main Program CPULator Version
-// Last saved 3/23 1:06 AM
- 
-// Latest changes 
-// switched drawing functions into double buffering 
-// added progress bar 
+// Last saved 3/23 1:31 AM
+
+// Latest changes
+// switched drawing functions into double buffering
+// added progress bar
 // changed game background
+// added LED indication for when game ends
 
-#include <stdio.h>
-#include <stdlib.h>
-
-volatile int pixel_buffer_start;
-
-#define SCREEN_W 320
-#define SCREEN_H 240
-#define KEY_BASE 0xFF200050
-#define SW_BASE 0xFF200040
-
-// Window boundaries
-#define WINDOW_START_X 22
-#define WINDOW_END_X 296
-#define WINDOW_START_Y 37
-#define WINDOW_END_Y 177
-
-// Player drawing parameters
-#define PLAYER_RADIUS 15
-#define SHOOT_RADIUS 7
+// --- IMAGE FILES --- //
+// These are to be replaced with header files in the DE1-Soc Version of the code
 
 // Single 1D array for background storage (320 * 240 = 76,800 pixels)
-
 unsigned short background[76800] = {
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
@@ -8566,9 +8549,29 @@ unsigned short background[76800] = {
 
 };
 
-void plot_pixel(int x, int y, short int line_colour, short* back_buf_ptr);
+// --- PROGRAM --- //
 
-// --- PLAYER --- //
+// --- Libraries --- //
+#include <stdio.h>
+#include <stdlib.h>
+
+// --- DEFINING CONSTANTS --- //
+#define SCREEN_W 320
+#define SCREEN_H 240
+#define KEY_BASE 0xFF200050
+#define SW_BASE 0xFF200040
+
+// Window boundaries
+#define WINDOW_START_X 22
+#define WINDOW_END_X 296
+#define WINDOW_START_Y 37
+#define WINDOW_END_Y 177
+
+// Player drawing parameters
+#define PLAYER_RADIUS 15
+#define SHOOT_RADIUS 7
+
+// --- STRUCTS --- //
 struct player {
   int x;
   int y;
@@ -8580,6 +8583,70 @@ struct player {
   int colour;
 };
 
+// --- FUNCTION HEADERS --- //
+
+// Drawing Functions
+volatile int pixel_buffer_start;
+void plot_pixel(int x, int y, short int line_colour, short* back_buf_ptr);
+void wait_for_vsync(void);
+void draw_background(short* back_buf_ptr);
+void updateProgressBar(short* back_buf_ptr);
+
+// Player functions
+void update_player_position(struct player* p);
+void update_player_movement(struct player* p, int new_dx, int new_dy);
+void read_keyboard_input(struct player* p);
+void shoot(struct player* p, short* back_buf_ptr);
+void read_switch_input(struct player* p, short* back_buf_ptr);
+void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr);
+void draw_player(struct player* p, short* back_buf_ptr);
+
+// Background restore functions
+void restore_background_area(int x_min, int x_max, int y_min, int y_max, short* back_buf_ptr);
+void restore_old_player_area(struct player* p, short* back_buf_ptr);
+
+
+// --- DRAWING FUNCTIONS --- //
+// Plot single pixel
+void plot_pixel(int x, int y, short int line_colour, short* back_buf_ptr) {
+  volatile short int* one_pixel_address;
+  // y << 9 is because it is padded
+  one_pixel_address = pixel_buffer_start + (y << 10) + (x << 1);
+  *one_pixel_address = line_colour;
+}
+
+// Double buffering sync
+void wait_for_vsync(void) {
+  volatile int* pixel_ctrl_ptr = (int*)0xFF203020;
+  volatile int* status_ptr = pixel_ctrl_ptr + 3;
+
+  *pixel_ctrl_ptr =
+      1;  // write 1 to Buffer register (offset +0) to trigger swap
+
+  while ((*status_ptr & 0x1) != 0);
+}
+
+// Draw background
+void draw_background(short* back_buf_ptr) {
+  for (int y = 0; y < SCREEN_H; y++) {
+    for (int x = 0; x < SCREEN_W; x++) {
+      plot_pixel(x, y, background[y * SCREEN_W + x], back_buf_ptr);
+    }
+  }
+}
+
+// Draw progress bar
+volatile double progressx = 77;
+
+void updateProgressBar(short* back_buf_ptr) {
+  if (progressx < 242) {
+    for (int y = 0; y < 10; y++) {
+      plot_pixel(progressx, 207 + y, 0x3130, back_buf_ptr);
+    }
+  }
+}
+
+// --- PLAYER FUNCTIONS --- //
 void update_player_position(struct player* p) {
   // Save old position before updating
   p->old_x = p->x;
@@ -8710,7 +8777,7 @@ void draw_player(struct player* p, short* back_buf_ptr) {
   }
 }
 
-// --- BACKGROUND --- //
+// --- BACKGROUND RESTORE FUNCTIONS --- //
 void restore_background_area(int x_min, int x_max, int y_min, int y_max,
                              short* back_buf_ptr) {
   // Clamp to window bounds
@@ -8746,44 +8813,9 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr) {
   restore_background_area(x_min, x_max, y_min, y_max, back_buf_ptr);
 }
 
-// --- VGA CONTROLS --- //
 
-/*
-void plot_pixel(int x, int y, short int line_color) {
-  volatile short int* one_pixel_address;
 
-  one_pixel_address =
-      (volatile short int*)(pixel_buffer_start + (y << 10) + (x << 1));
-
-  *one_pixel_address = line_color;
-}*/
-
-void plot_pixel(int x, int y, short int line_colour, short* back_buf_ptr) {
-  volatile short int* one_pixel_address;
-  // y << 9 is because it is padded
-  one_pixel_address = pixel_buffer_start + (y << 10) + (x << 1);
-  *one_pixel_address = line_colour;
-}
-
-void wait_for_vsync(void) {
-  volatile int* pixel_ctrl_ptr = (int*)0xFF203020;
-  volatile int* status_ptr = pixel_ctrl_ptr + 3;
-
-  *pixel_ctrl_ptr =
-      1;  // write 1 to Buffer register (offset +0) to trigger swap
-
-  while ((*status_ptr & 0x1) != 0);
-}
-
-void draw_background(short* back_buf_ptr) {
-  for (int y = 0; y < SCREEN_H; y++) {
-    for (int x = 0; x < SCREEN_W; x++) {
-      plot_pixel(x, y, background[y * SCREEN_W + x], back_buf_ptr);
-    }
-  }
-}
-
-// --- INTERRUPTS --- //
+// --- INTERRUPTS --- // MIGHT NOT NEED
 #define clock_rate 100000000
 #define quarter_clock clock_rate / 4
 
@@ -8792,23 +8824,42 @@ static void handler(void) __attribute__((interrupt("machine")));
 void set_mtimer(void);
 void mtimer_ISR(void);
 
-/* Global variables are written by interrupt service routines; we declare
-16 * as volatile to avoid the compiler caching their values in registers */
-volatile int counter = 0;  // binary counter to be displayed
-volatile int digit = 0;    // decimal digit to be displayed
-volatile int KEY_dir = 1;  // digit counter direction
-volatile int counter2 = 0;
+// Volatile interrupts variables
 
-// Progress bar
-volatile double progressx = 77;
+// Interrupt handler
+void handler(void) {
+  int mcause_value;
+  __asm__ volatile("csrr %0, mcause" : "=r"(mcause_value));
+  if (mcause_value == 0x80000007)  // machine timer
+    mtimer_ISR();
+}
 
-// Progress bar update
-void updateProgressBar(short* back_buf_ptr) {
-  if (progressx < 242) {
-    for (int y = 0; y < 10; y++) {
-      plot_pixel(progressx, 207 + y, 0x3130, back_buf_ptr);
-    }
-  }
+// Interrupt Service Routines
+typedef long long int64;
+
+// Timer
+void mtimer_ISR(void) {
+  volatile unsigned int* mtime_ptr = (unsigned int*)0xFF202100;
+  int64 mtimecmp64;
+  mtimecmp64 = *(mtime_ptr + 3);  // read high word of 64-bit register
+  mtimecmp64 = (mtimecmp64 << 32) | *(mtime_ptr + 2);   // read low word
+  mtimecmp64 = mtimecmp64 + (int64)quarter_clock;       // adjus timeout
+  *(mtime_ptr + 2) = (unsigned int)mtimecmp64;          // store low word
+  *(mtime_ptr + 3) = (unsigned int)(mtimecmp64 >> 32);  // store high word
+}
+
+// Configure the Nios V machine timer
+void set_mtimer(void) {
+  volatile int* mtime_ptr = (int*)0xFF202100;
+  unsigned int mtime_h, mtime_l, carry, mtimecmp_l;
+  do {
+    mtime_h = *(mtime_ptr + 1);  // read mtime high word
+    mtime_l = *(mtime_ptr);      // read mtime low word
+  } while (*(mtime_ptr + 1) != mtime_h);
+  mtimecmp_l = mtime_l + quarter_clock;  // add to current time
+  carry = mtimecmp_l < mtime_l ? 1 : 0;  // check for carry-out
+  *(mtime_ptr + 2) = mtimecmp_l;         // set mtimecmp low word
+  *(mtime_ptr + 3) = mtime_h + carry;    // set mtimecmp high word
 }
 
 // --- MAIN PROGRAM -- //
@@ -8843,7 +8894,6 @@ int main(void) {
   volatile int* HEX3_HEX0_ptr = (int*)0xFF200020;
 
   set_mtimer();
-
   int mstatus_value, mtvec_value, mie_value;
   mstatus_value = 0b1000;  // interrupt bit mask
   // disable interrupts
@@ -8859,16 +8909,20 @@ int main(void) {
   // enable Nios V interrupts
   __asm__ volatile("csrs mstatus, %0" ::"r"(mstatus_value));
 
-  *HEX3_HEX0_ptr = 0x3f;  // show 0 on HEX0
-
+  // -- MAIN GAME LOOP -- //
   while (1) {
+    // If the game is over light up an LED
+    if (progressx >= 242) {
+      *LEDR_ptr = 0x1;
+    }
+
     // --- PLAYER UPDATES --- //
     // Read keyboard input for player 1
     read_keyboard_input(&p1);
 
     // Read switch input for player 1 to shoot
     read_switch_input(&p1, back_buf_ptr);
- 
+
     // Update positions (old positions are saved inside update_player_position)
     update_player_position(&p1);
     update_player_position(&p2);
@@ -8888,47 +8942,4 @@ int main(void) {
     wait_for_vsync();
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
-}
-
-// Interrupt handler
-void handler(void) {
-  int mcause_value;
-  __asm__ volatile("csrr %0, mcause" : "=r"(mcause_value));
-  if (mcause_value == 0x80000007)  // machine timer
-    mtimer_ISR();
-}
-
-// Nios V machine timer interrupt service routine
-typedef long long int64;
-
-void mtimer_ISR(void) {
-  volatile unsigned int* mtime_ptr = (unsigned int*)0xFF202100;
-  int64 mtimecmp64;
-
-  mtimecmp64 = *(mtime_ptr + 3);  // read high word of 64-bit register
-
-  mtimecmp64 = (mtimecmp64 << 32) | *(mtime_ptr + 2);  // read low word
-
-  mtimecmp64 = mtimecmp64 + (int64)quarter_clock;  // adjus timeout
-
-  *(mtime_ptr + 2) = (unsigned int)mtimecmp64;  // store low word
-
-  *(mtime_ptr + 3) = (unsigned int)(mtimecmp64 >> 32);  // store high word
-
-  counter = counter + 1;
-
-}
-
-// Configure the Nios V machine timer
-void set_mtimer(void) {
-  volatile int* mtime_ptr = (int*)0xFF202100;
-  unsigned int mtime_h, mtime_l, carry, mtimecmp_l;
-  do {
-    mtime_h = *(mtime_ptr + 1);  // read mtime high word
-    mtime_l = *(mtime_ptr);      // read mtime low word
-  } while (*(mtime_ptr + 1) != mtime_h);
-  mtimecmp_l = mtime_l + quarter_clock;  // add to current time
-  carry = mtimecmp_l < mtime_l ? 1 : 0;  // check for carry-out
-  *(mtime_ptr + 2) = mtimecmp_l;         // set mtimecmp low word
-  *(mtime_ptr + 3) = mtime_h + carry;    // set mtimecmp high word
 }
