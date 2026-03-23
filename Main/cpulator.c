@@ -1,8 +1,8 @@
 // Main Program CPULator Version
-// Last saved 3/23 4:30 PM
+// Last saved 3/23 5:24 PM
 
 // Latest changes
-// added restart on switch 2
+// trying to implement calculate area
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8570,7 +8570,9 @@ unsigned short background[76800] = {
 #define SHOOT_RADIUS 7
 
 // --- GLOBAL VARIABLES --- //
-bool gameEnd = false;
+volatile bool gameEnd = false;
+volatile double player1Score = 0;
+volatile double player2Score = 0;
 
 // --- STRUCTS --- //
 struct player {
@@ -8609,6 +8611,9 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr);
 
 // Random Events
 void clearPaintEvent(short* back_buf_ptr);
+
+// Area calculation
+void calculateArea(struct player* p, short* canvas, int playerScore);
 
 // --- DRAWING FUNCTIONS --- //
 // Plot single pixel
@@ -8846,6 +8851,20 @@ void clearPaintEvent(short* back_buf_ptr) {
 
 // --- CALCULATE AREA --- //
 // Display the score of each player on hex?
+// Read the game window on the background and if the pixel matches the player
+// colour add to that player's score
+void calculateArea(struct player* p, short* canvas, int playerScore) {
+  int player_colour = p->colour;
+
+  for (int y = 38; y < 176; y++) {
+    for (int x = 23; x < 295; x++) {
+      int pixel_colour = background[y * SCREEN_W + x];
+      if (pixel_colour == player_colour) {
+        playerScore += 1;
+      }
+    }
+  }
+}
 
 // --- Restart --- //
 void restart(short* back_buf_ptr) {
@@ -8929,10 +8948,11 @@ int main(void) {
   struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800};
   struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F};
 
-  // --- Set up interrupts --- //
+  // --- Set up pointers --- //
   volatile int* mtime_ptr = (int*)0xFF202100;
   volatile int* LEDR_ptr = (int*)0xFF200000;
   volatile int* HEX3_HEX0_ptr = (int*)0xFF200020;
+  volatile int* characterBuffer_ptr = (int*)0x09000000;
 
   set_mtimer();
   int mstatus_value, mtvec_value, mie_value;
@@ -8950,6 +8970,9 @@ int main(void) {
   // enable Nios V interrupts
   __asm__ volatile("csrs mstatus, %0" ::"r"(mstatus_value));
 
+  // write a character
+  *characterBuffer_ptr = 'A';
+
   // -- MAIN GAME LOOP -- //
   while (1) {
     // If the game is over light up an LED
@@ -8964,11 +8987,9 @@ int main(void) {
       *LEDR_ptr = 0x10;
     }
 
-    // if (progressx > 158 && progressx < 160){
-    //   chooseRandomEvent();
-    // }
-
     // --- PLAYER UPDATES --- //
+    // Update player scores
+
     // Read keyboard input for player 1
     read_keyboard_input(&p1);
 
@@ -8983,10 +9004,14 @@ int main(void) {
     restore_old_player_area(&p1, back_buf_ptr);
     restore_old_player_area(&p2, back_buf_ptr);
 
+    calculateArea(&p1, pixel_buffer_start, player1Score);
+    printf("player1 score: %d\n", player1Score);
+
     // Draw players at NEW positions
     draw_player(&p1, back_buf_ptr);
     draw_player(&p2, back_buf_ptr);
 
+    // Update progress bar
     progressx = progressx + 0.02;
     updateProgressBar(back_buf_ptr);
 
