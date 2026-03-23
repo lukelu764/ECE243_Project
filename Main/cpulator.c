@@ -1,11 +1,8 @@
 // Main Program CPULator Version
-// Last saved 3/23 1:31 AM
+// Last saved 3/23 11:26 AM
 
 // Latest changes
-// switched drawing functions into double buffering
-// added progress bar
-// changed game background
-// added LED indication for when game ends
+// added game state - disables game controls when timer ends
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8554,6 +8551,7 @@ unsigned short background[76800] = {
 // --- Libraries --- //
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h> 
 
 // --- DEFINING CONSTANTS --- //
 #define SCREEN_W 320
@@ -8570,6 +8568,9 @@ unsigned short background[76800] = {
 // Player drawing parameters
 #define PLAYER_RADIUS 15
 #define SHOOT_RADIUS 7
+
+// --- GLOBAL VARIABLES --- // 
+bool gameEnd = false; 
 
 // --- STRUCTS --- //
 struct player {
@@ -8910,10 +8911,11 @@ int main(void) {
   __asm__ volatile("csrs mstatus, %0" ::"r"(mstatus_value));
 
   // -- MAIN GAME LOOP -- //
-  while (1) {
+  while (!gameEnd) {
     // If the game is over light up an LED
     if (progressx >= 242) {
       *LEDR_ptr = 0x1;
+      gameEnd = true; 
     }
 
     // --- PLAYER UPDATES --- //
@@ -8943,3 +8945,7 @@ int main(void) {
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
 }
+	
+	
+	
+	
