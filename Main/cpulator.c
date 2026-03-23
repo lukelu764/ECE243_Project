@@ -1,8 +1,8 @@
 // Main Program CPULator Version
-// Last saved 3/23 4:23 PM
+// Last saved 3/23 4:30 PM
 
 // Latest changes
-// added restart
+// added restart on switch 2
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8561,8 +8561,8 @@ unsigned short background[76800] = {
 
 // Window boundaries
 #define WINDOW_START_X 24
-#define WINDOW_END_X 295
-#define WINDOW_START_Y 38
+#define WINDOW_END_X 294
+#define WINDOW_START_Y 39
 #define WINDOW_END_Y 175
 
 // Player drawing parameters
@@ -8995,5 +8995,3 @@ int main(void) {
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
 }
-
-	
