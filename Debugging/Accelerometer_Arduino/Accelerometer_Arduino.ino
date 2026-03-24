@@ -46,17 +46,11 @@ void loop() {
   Gy_dps = GyY / 131.0;
   Gz_dps = GyZ / 131.0;
 
-  Serial.print("Accelerometer (g): ");
-  Serial.print("X = "); Serial.print(Ax_g,3);
-  Serial.print(" | Y = "); Serial.print(Ay_g,3);
-  Serial.print(" | Z = "); Serial.println(Az_g,3);
-
-  Serial.print("Gyroscope (deg/s): ");
-  Serial.print("X = "); Serial.print(Gx_dps,2);
-  Serial.print(" | Y = "); Serial.print(Gy_dps,2);
-  Serial.print(" | Z = "); Serial.println(Gz_dps,2);
-
-  Serial.println();
+  /* SEND ONLY NUMBERS (space-separated) */
+  Serial.print(Ax_g, 3); Serial.print(" ");
+  Serial.print(Ay_g, 3); Serial.print(" ");
+  Serial.print(Gx_dps, 2); Serial.print(" ");
+  Serial.println(Gz_dps, 2);  // newline at end
 
   delay(250);
 }

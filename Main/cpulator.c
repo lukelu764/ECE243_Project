@@ -8571,8 +8571,7 @@ unsigned short background[76800] = {
 
 // --- GLOBAL VARIABLES --- //
 volatile bool gameEnd = false;
-volatile double player1Score = 0;
-volatile double player2Score = 0;
+
 
 // --- STRUCTS --- //
 struct player {
@@ -8584,6 +8583,7 @@ struct player {
   int dx;
   int dy;
   int colour;
+  int score;
 };
 
 // --- FUNCTION HEADERS --- //
@@ -8613,7 +8613,7 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr);
 void clearPaintEvent(short* back_buf_ptr);
 
 // Area calculation
-void calculateArea(struct player* p, short* canvas, int playerScore);
+void calculateArea(struct player* p);
 
 // --- DRAWING FUNCTIONS --- //
 // Plot single pixel
@@ -8853,14 +8853,13 @@ void clearPaintEvent(short* back_buf_ptr) {
 // Display the score of each player on hex?
 // Read the game window on the background and if the pixel matches the player
 // colour add to that player's score
-void calculateArea(struct player* p, short* canvas, int playerScore) {
-  int player_colour = p->colour;
+void calculateArea(struct player* p) {
+  p->score = 0;  // reset score before recounting
 
-  for (int y = 38; y < 176; y++) {
-    for (int x = 23; x < 295; x++) {
-      int pixel_colour = background[y * SCREEN_W + x];
-      if (pixel_colour == player_colour) {
-        playerScore += 1;
+  for (int y = WINDOW_START_Y; y < WINDOW_END_Y; y++) {
+    for (int x = WINDOW_START_X; x < WINDOW_END_X; x++) {
+      if (p->colour == background[y * SCREEN_W + x]) {
+        p->score += 1;
       }
     }
   }
@@ -8931,6 +8930,7 @@ int main(void) {
 
   short int current_frame[SCREEN_H][SCREEN_W];
   short int next_frame[SCREEN_H][SCREEN_W];
+  int counter = 0;
   // declare other variables(not shown)
 
   /* set front pixel buffer to Buffer1 */
@@ -8945,8 +8945,8 @@ int main(void) {
   draw_background(back_buf_ptr);
 
   // --- Set up players --- //
-  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800};
-  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F};
+  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800,0};
+  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F,0};
 
   // --- Set up pointers --- //
   volatile int* mtime_ptr = (int*)0xFF202100;
@@ -9003,9 +9003,12 @@ int main(void) {
     // Restore background where players WERE (old positions)
     restore_old_player_area(&p1, back_buf_ptr);
     restore_old_player_area(&p2, back_buf_ptr);
+    
 
-    calculateArea(&p1, pixel_buffer_start, player1Score);
-    printf("player1 score: %d\n", player1Score);
+    calculateArea(&p1);
+    printf("player1 score: %d\n", p1.score);
+    
+
 
     // Draw players at NEW positions
     draw_player(&p1, back_buf_ptr);
