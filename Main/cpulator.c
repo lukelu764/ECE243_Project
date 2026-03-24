@@ -1,8 +1,9 @@
+
 // Main Program CPULator Version
-// Last saved 3/23 5:24 PM
+// Last saved 3/24 12:39 AM
 
 // Latest changes
-// trying to implement calculate area
+// using switches to change between the control of the two players
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8988,13 +8989,26 @@ int main(void) {
     }
 
     // --- PLAYER UPDATES --- //
+
+     volatile int* sw_ptr = (int*)SW_BASE;
+    int sw_value = *sw_ptr;
     // Update player scores
 
     // Read keyboard input for player 1
+
+    if (sw_value & 0b100){
     read_keyboard_input(&p1);
 
     // Read switch input for player 1 to shoot
     read_switch_input(&p1, back_buf_ptr);
+    }
+    else if (sw_value & 0b1000){
+      read_keyboard_input(&p2);
+
+      // Read switch input for player 1 to shoot
+      read_switch_input(&p2, back_buf_ptr);
+
+    }
 
     // Update positions (old positions are saved inside update_player_position)
     update_player_position(&p1);
@@ -9006,7 +9020,9 @@ int main(void) {
     
 
     calculateArea(&p1);
+    calculateArea(&p2);
     printf("player1 score: %d\n", p1.score);
+    printf("player2 score: %d\n", p2.score);
     
 
 
@@ -9023,3 +9039,8 @@ int main(void) {
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
 }
+
+	
+	
+	
+	
