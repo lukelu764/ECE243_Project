@@ -8592,6 +8592,8 @@ struct player {
 
   int player_radius;
   int shoot_radius;
+
+  int shoot_cooldown;
 };
 
 // --- FUNCTION HEADERS --- //
@@ -8668,6 +8670,9 @@ void updateProgressBar(short* back_buf_ptr) {
 
 // --- PLAYER FUNCTIONS --- //
 void update_player_position(struct player* p) {
+  //shoot timer decreaser
+  if (p->shoot_cooldown>0) {p->shoot_cooldown--;}
+
   // Save old position before updating
   p->old_x = p->x;
   p->old_y = p->y;
@@ -8715,6 +8720,8 @@ void read_keyboard_input(struct player* p) {
 // Maybe change the shape to like a random splotter in the future, but for now
 // just a solid circle
 void shoot(struct player* p, short* back_buf_ptr) {
+  if (p->shoot_cooldown > 0) {return;}
+
   for (int dy = -(p->shoot_radius); dy <= (p->shoot_radius); dy++) {
     for (int dx = -(p->shoot_radius); dx <= (p->shoot_radius); dx++) {
       if (dx * dx + dy * dy <= (p->shoot_radius) * (p->shoot_radius)) {
@@ -8730,6 +8737,8 @@ void shoot(struct player* p, short* back_buf_ptr) {
       }
     }
   }
+
+  p->shoot_cooldown = 30; 
 }
 
 void read_switch_input(struct player* p, short* back_buf_ptr) {
@@ -9072,7 +9081,6 @@ int main(void) {
 
   short int current_frame[SCREEN_H][SCREEN_W];
   short int next_frame[SCREEN_H][SCREEN_W];
-  int counter = 0;
   // declare other variables(not shown)
 
   /* set front pixel buffer to Buffer1 */
@@ -9089,8 +9097,8 @@ int main(void) {
   // --- Set up players --- //
 
   // x   y  old_x old_y dx dy colour score player_radius, shoot_radius
-  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800, 0, 15, 7};
-  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0, 15, 7};
+  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800, 0, 15, 7, 0};
+  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0, 15, 7, 0};
 
   // --- Set up pointers --- //
   volatile int* mtime_ptr = (int*)0xFF202100;
