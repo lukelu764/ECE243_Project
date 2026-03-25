@@ -8563,6 +8563,8 @@ unsigned short background[76800] = {
 #define SCREEN_H 240
 #define KEY_BASE 0xFF200050
 #define SW_BASE 0xFF200040
+#define PS2_BASE 0xFF200100
+#define LED_BASE 0xFF200000
 
 // Window boundaries
 #define WINDOW_START_X 24
@@ -8610,7 +8612,7 @@ void update_player_position(struct player* p);
 void update_player_movement(struct player* p, int new_dx, int new_dy);
 void read_keyboard_input(struct player* p);
 void shoot(struct player* p, short* back_buf_ptr);
-void read_switch_input(struct player* p, short* back_buf_ptr);
+void read_switch_input(short* back_buf_ptr);
 void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr);
 void draw_player(struct player* p, short* back_buf_ptr);
 
@@ -8626,6 +8628,9 @@ void clearPaintEvent(short* back_buf_ptr);
 void draw_digit(int x, int y, int digit, short color, short* buf);
 void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr);
 void calculateArea(struct player* p);
+
+
+void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr);
 
 // --- DRAWING FUNCTIONS --- //
 // Plot single pixel
@@ -8741,16 +8746,10 @@ void shoot(struct player* p, short* back_buf_ptr) {
   p->shoot_cooldown = 30; 
 }
 
-void read_switch_input(struct player* p, short* back_buf_ptr) {
+void read_switch_input(short* back_buf_ptr) {
   volatile int* sw_ptr = (int*)SW_BASE;
   int sw_value = *sw_ptr;
 
-  // Check if switch 0 is pressed (bit 0)
-  if (sw_value & 0x1) {
-    shoot(p, back_buf_ptr);
-  }
-
-  // Check if switch 2 is pressed
   if (sw_value & 2) {
     // Restart the game
     restart(back_buf_ptr);
@@ -9072,6 +9071,101 @@ void set_mtimer(void) {
   *(mtime_ptr + 3) = mtime_h + carry;    // set mtimecmp high word
 }
 
+void read_ps2key(struct player* p1, struct player* p2,short* back_buf_ptr)
+{
+    volatile int *PS2_ptr = (int *)PS2_BASE;
+    volatile int *LED_ptr = (int *)LED_BASE;
+
+    static int got_f0 = 0;
+    static int led_state = 0;
+
+    while (1)
+    {
+        int data = *PS2_ptr;
+        int rvalid = (data >> 15) & 0x1;
+
+        if (!rvalid)
+            break;
+
+        unsigned char byte = data & 0xFF;
+
+        if (byte == 0xF0)
+        {
+            got_f0 = 1; // key release
+        }
+        else
+        {
+            if (got_f0)
+            {
+                got_f0 = 0; // ignore release
+            }
+            else
+            {
+                switch (byte)
+                {
+                    //player 1  ------------------
+                    case 0x1D: // W, move up
+                        update_player_movement(p1, 0, -1);
+                        led_state ^= (1 << 0);
+                        break;
+
+                    case 0x1B: // S, move down
+                        update_player_movement(p1, 0, 1);
+                        led_state ^= (1 << 1);
+                        break;
+
+                    case 0x1C: // A, move left
+                        update_player_movement(p1, -1, 0);
+                        led_state ^= (1 << 2);
+                        break;
+
+                    case 0x23: // D, move right
+                        update_player_movement(p1, 1, 0);
+                        led_state ^= (1 << 3);
+                        break;
+
+                    case 0x21: // C, shoot
+                        shoot(p1, back_buf_ptr);
+                        led_state ^= (1 << 4);
+                        break;
+
+
+                    //player 2  ------------------
+                    case 0x43: // I, move up
+                        update_player_movement(p2, 0, -1);
+                        led_state ^= (1 << 5);
+                        break;
+
+                    case 0x3B: // J, move left
+                        update_player_movement(p2, -1, 0);
+                        led_state ^= (1 << 6);
+                        break;
+
+                    case 0x42: // K, move down
+                        update_player_movement(p2, 0, 1);
+                        led_state ^= (1 << 7);
+                        break;
+
+                    case 0x4B: // L, move right
+                        update_player_movement(p2, 1, 0);
+                        led_state ^= (1 << 8);
+                        break;
+
+                    case 0x31: // N, shoot
+                        shoot(p2, back_buf_ptr);
+                        led_state ^= (1 << 9);
+                        break;
+
+                    default:
+                        break;
+                }
+
+                *LED_ptr = led_state;
+            }
+        }
+    }
+}
+
 // --- MAIN PROGRAM -- //
 int main(void) {
   // --- Graphics --- //
@@ -9177,18 +9271,9 @@ int main(void) {
     // Update player scores
 
     // Read keyboard input for player 1
+    read_switch_input(back_buf_ptr);
 
-    if (sw_value & 0b100) {
-      read_keyboard_input(&p1);
-
-      // Read switch input for player 1 to shoot
-      read_switch_input(&p1, back_buf_ptr);
-    } else if (sw_value & 0b1000) {
-      read_keyboard_input(&p2);
-
-      // Read switch input for player 1 to shoot
-      read_switch_input(&p2, back_buf_ptr);
-    }
+    read_ps2key(&p1, &p2, back_buf_ptr);
 
     // Update positions (old positions are saved inside update_player_position)
     update_player_position(&p1);
