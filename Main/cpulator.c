@@ -1,10 +1,13 @@
 // Main Program CPULator Version
-// Last saved 3/25 1:05 AM
+// Last saved 3/25 2:28 PM
 
 // Latest changes
 // display score on screen
 // causing random events, add flag
 // testing clear canvas event
+// changed player radius into modifiable parameters
+// added change paintbrush size functions 
+
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8586,6 +8589,9 @@ struct player {
   int dy;
   int colour;
   int score;
+
+  int player_radius;
+  int shoot_radius;
 };
 
 // --- FUNCTION HEADERS --- //
@@ -8709,9 +8715,9 @@ void read_keyboard_input(struct player* p) {
 // Maybe change the shape to like a random splotter in the future, but for now
 // just a solid circle
 void shoot(struct player* p, short* back_buf_ptr) {
-  for (int dy = -SHOOT_RADIUS; dy <= SHOOT_RADIUS; dy++) {
-    for (int dx = -SHOOT_RADIUS; dx <= SHOOT_RADIUS; dx++) {
-      if (dx * dx + dy * dy <= SHOOT_RADIUS * SHOOT_RADIUS) {
+  for (int dy = -(p->shoot_radius); dy <= (p->shoot_radius); dy++) {
+    for (int dx = -(p->shoot_radius); dx <= (p->shoot_radius); dx++) {
+      if (dx * dx + dy * dy <= (p->shoot_radius) * (p->shoot_radius)) {
         int px = p->x + dx;
         int py = p->y + dy;
 
@@ -8751,7 +8757,7 @@ void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr) {
 }
 
 void draw_player(struct player* p, short* back_buf_ptr) {
-  int size = PLAYER_RADIUS - 5;
+  int size = (p->player_radius) - 5;
   int thickness = 2;
   short int colour = p->colour;
 
@@ -8771,8 +8777,8 @@ void draw_player(struct player* p, short* back_buf_ptr) {
 
   // Draw circle using midpoint circle algorithm
   int x = 0;
-  int y = PLAYER_RADIUS;
-  int d = 3 - 2 * PLAYER_RADIUS;  // decision parameter
+  int y = p->player_radius;
+  int d = 3 - 2 * p->player_radius;  // decision parameter
 
   while (x <= y) {
     // Draw 8 symmetric points with bounds checking
@@ -8824,7 +8830,7 @@ void restore_background_area(int x_min, int x_max, int y_min, int y_max,
 // this resets a square of where the player was to the background colour
 // kinda naive but like lazy method and fast enough
 void restore_old_player_area(struct player* p, short* back_buf_ptr) {
-  int size = PLAYER_RADIUS + 15 + 2;  // radius + crosshair + thickness
+  int size = (p->player_radius) + 15 + 2;  // radius + crosshair + thickness
   int x_min = p->old_x - size;
   int x_max = p->old_x + size;
   int y_min = p->old_y - size;
@@ -8853,6 +8859,29 @@ void clearPaintEvent(short* back_buf_ptr) {
       background[y * SCREEN_W + x] = 0xFFFF;
     }
   }
+}
+
+void increasePaintbrush(struct player* p1, struct player* p2) {
+  int newPlayerSize = 20;
+  int newPaintSize = 10;
+
+  // Also need a random function to decide which player's paint size gets changed
+  // testing by changing p1 for now
+
+  p1->player_radius = newPlayerSize;
+  p1->shoot_radius = newPaintSize;
+}
+
+void decreasePaintbrush(struct player* p1, struct player* p2){
+  int newPlayerSize = 10; 
+  int newPaintSize = 5; 
+
+  // Also need a random function to decide which player's paint size gets changed
+  // testing by changing p2 for now
+
+  p2->player_radius = newPlayerSize;
+  p2->shoot_radius = newPaintSize;
+
 }
 
 // --- CALCULATE AREA --- //
@@ -9058,8 +9087,10 @@ int main(void) {
   draw_background(back_buf_ptr);
 
   // --- Set up players --- //
-  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800, 0};
-  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0};
+
+  // x   y  old_x old_y dx dy colour score player_radius, shoot_radius
+  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800, 0, 15, 7};
+  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0, 15, 7};
 
   // --- Set up pointers --- //
   volatile int* mtime_ptr = (int*)0xFF202100;
@@ -9103,6 +9134,7 @@ int main(void) {
       printf("%d random event number\n", randomEvent);
       *LEDR_ptr = 0x10;
 
+      // --- TEST CLEAR PAINT EVENT --- //
       clearPaintEvent(back_buf_ptr);
       for (int y = 38; y < 176; y++) {
         for (int x = 23; x < 295; x++) {
@@ -9117,6 +9149,17 @@ int main(void) {
           plot_pixel(x, y, background[y * SCREEN_W + x], pixel_buffer_start);
         }
       }
+      
+      // --- //
+
+
+      // TEST INCREASE AND DECREASE PAINT SIZE 
+      increasePaintbrush(&p1, &p2); 
+      decreasePaintbrush(&p1, &p2); 
+
+      // --- //
+
+
     }
 
     // --- PLAYER UPDATES --- //
