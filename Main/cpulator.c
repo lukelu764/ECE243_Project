@@ -1,9 +1,10 @@
-
 // Main Program CPULator Version
-// Last saved 3/24 12:39 AM
+// Last saved 3/25 1:05 AM
 
 // Latest changes
-// using switches to change between the control of the two players
+// display score on screen
+// causing random events, add flag
+// testing clear canvas event
 
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
@@ -8572,7 +8573,7 @@ unsigned short background[76800] = {
 
 // --- GLOBAL VARIABLES --- //
 volatile bool gameEnd = false;
-
+volatile bool eventFlag = false;
 
 // --- STRUCTS --- //
 struct player {
@@ -8835,13 +8836,15 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr) {
 // --- RANDOM EVENTS --- //
 volatile int* mtime_ptr = (int*)0xFF202100;
 
-void chooseRandomEvent() {
+int chooseRandomEvent() {
   // Generate random numbers between 0 to 5
 
   int seed = *(mtime_ptr);
   srand(seed);
   int randomEventNumber = rand() % 6;
-  printf("%d", randomEventNumber);
+  printf("random number: %d\n", randomEventNumber);
+
+  return randomEventNumber;
 }
 
 void clearPaintEvent(short* back_buf_ptr) {
@@ -8857,40 +8860,39 @@ void clearPaintEvent(short* back_buf_ptr) {
 // Read the game window on the background and if the pixel matches the player
 // colour add to that player's score
 const unsigned char font[10][5] = {
-    {0x1F,0x11,0x11,0x11,0x1F}, // 0
-    {0x04,0x0C,0x04,0x04,0x1F}, // 1
-    {0x1F,0x01,0x1F,0x10,0x1F}, // 2
-    {0x1F,0x01,0x1F,0x01,0x1F}, // 3
-    {0x11,0x11,0x1F,0x01,0x01}, // 4
-    {0x1F,0x10,0x1F,0x01,0x1F}, // 5
-    {0x1F,0x10,0x1F,0x11,0x1F}, // 6
-    {0x1F,0x01,0x02,0x04,0x08}, // 7
-    {0x1F,0x11,0x1F,0x11,0x1F}, // 8
-    {0x1F,0x11,0x1F,0x01,0x1F}  // 9
+    {0x1F, 0x11, 0x11, 0x11, 0x1F},  // 0
+    {0x04, 0x0C, 0x04, 0x04, 0x1F},  // 1
+    {0x1F, 0x01, 0x1F, 0x10, 0x1F},  // 2
+    {0x1F, 0x01, 0x1F, 0x01, 0x1F},  // 3
+    {0x11, 0x11, 0x1F, 0x01, 0x01},  // 4
+    {0x1F, 0x10, 0x1F, 0x01, 0x1F},  // 5
+    {0x1F, 0x10, 0x1F, 0x11, 0x1F},  // 6
+    {0x1F, 0x01, 0x02, 0x04, 0x08},  // 7
+    {0x1F, 0x11, 0x1F, 0x11, 0x1F},  // 8
+    {0x1F, 0x11, 0x1F, 0x01, 0x1F}   // 9
 };
 
 void draw_digit(int x, int y, int digit, short color, short* buf) {
-    for (int row = 0; row < 5; row++) {
-        unsigned char row_data = font[digit][row];
-        
-        for (int col = 0; col < 5; col++) {
-            // Check if the bit is set (MSB is leftmost)
-            if (row_data & (1 << (4 - col))) {
+  for (int row = 0; row < 5; row++) {
+    unsigned char row_data = font[digit][row];
 
-                // Calculate the top-left corner of the scaled "pixel" block
-                // Width multiplier = 2, Height multiplier = 3
-                int base_x = x + col * 2;
-                int base_y = y + row * 3;
+    for (int col = 0; col < 5; col++) {
+      // Check if the bit is set (MSB is leftmost)
+      if (row_data & (1 << (4 - col))) {
+        // Calculate the top-left corner of the scaled "pixel" block
+        // Width multiplier = 2, Height multiplier = 3
+        int base_x = x + col * 2;
+        int base_y = y + row * 3;
 
-                // Fill a 2-pixel wide by 3-pixel high rectangle
-                for (int dx = 0; dx < 2; dx++) {
-                    for (int dy = 0; dy < 3; dy++) {
-                        plot_pixel(base_x + dx, base_y + dy, color, buf);
-                    }
-                }
-            }
+        // Fill a 2-pixel wide by 3-pixel high rectangle
+        for (int dx = 0; dx < 2; dx++) {
+          for (int dy = 0; dy < 3; dy++) {
+            plot_pixel(base_x + dx, base_y + dy, color, buf);
+          }
         }
+      }
     }
+  }
 }
 
 void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
@@ -8899,7 +8901,7 @@ void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
 
   // --- Player 1 Score ---
   calculateArea(p1);
-  int p1_score_disp = p1->score / 10; 
+  int p1_score_disp = p1->score / 10;
   int p1_thousands = p1_score_disp / 1000;
   int p1_hundreds = (p1_score_disp % 1000) / 100;
   int p1_tens = (p1_score_disp % 100) / 10;
@@ -8920,12 +8922,14 @@ void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
   if (p1_thousands != 0)
     draw_digit(p1_X, Bottom_Left_Y, p1_thousands, p1->colour, back_buf_ptr);
   if (p1_thousands != 0 || p1_hundreds != 0)
-    draw_digit(p1_X + padding, Bottom_Left_Y, p1_hundreds, p1->colour, back_buf_ptr);
+    draw_digit(p1_X + padding, Bottom_Left_Y, p1_hundreds, p1->colour,
+               back_buf_ptr);
   if (p1_thousands != 0 || p1_hundreds != 0 || p1_tens != 0)
-    draw_digit(p1_X + padding * 2, Bottom_Left_Y, p1_tens, p1->colour, back_buf_ptr);
-  
-  draw_digit(p1_X + padding * 3, Bottom_Left_Y, p1_ones, p1->colour, back_buf_ptr);
+    draw_digit(p1_X + padding * 2, Bottom_Left_Y, p1_tens, p1->colour,
+               back_buf_ptr);
 
+  draw_digit(p1_X + padding * 3, Bottom_Left_Y, p1_ones, p1->colour,
+             back_buf_ptr);
 
   // --- Player 2 Score ---
   calculateArea(p2);
@@ -8936,7 +8940,7 @@ void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
   int p2_ones = p2_score_disp % 10;
 
   // Positioned on the right (320 - 60px for digits - 10px margin)
-  int p2_X = 253; 
+  int p2_X = 253;
 
   // Clear P2 area
   for (int i = 0; i < 4; i++) {
@@ -8951,11 +8955,14 @@ void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
   if (p2_thousands != 0)
     draw_digit(p2_X, Bottom_Left_Y, p2_thousands, p2->colour, back_buf_ptr);
   if (p2_thousands != 0 || p2_hundreds != 0)
-    draw_digit(p2_X + padding, Bottom_Left_Y, p2_hundreds, p2->colour, back_buf_ptr);
+    draw_digit(p2_X + padding, Bottom_Left_Y, p2_hundreds, p2->colour,
+               back_buf_ptr);
   if (p2_thousands != 0 || p2_hundreds != 0 || p2_tens != 0)
-    draw_digit(p2_X + padding * 2, Bottom_Left_Y, p2_tens, p2->colour, back_buf_ptr);
+    draw_digit(p2_X + padding * 2, Bottom_Left_Y, p2_tens, p2->colour,
+               back_buf_ptr);
 
-  draw_digit(p2_X + padding * 3, Bottom_Left_Y, p2_ones, p2->colour, back_buf_ptr);
+  draw_digit(p2_X + padding * 3, Bottom_Left_Y, p2_ones, p2->colour,
+             back_buf_ptr);
 }
 
 void calculateArea(struct player* p) {
@@ -8976,7 +8983,8 @@ void restart(short* back_buf_ptr) {
   clearPaintEvent(pixel_buffer_start);
   draw_background(back_buf_ptr);
   progressx = 77;
-  gameEnd = true;
+  // gameEnd = true;
+  eventFlag = false;
 }
 
 // --- INTERRUPTS --- // MIGHT NOT NEED
@@ -9050,8 +9058,8 @@ int main(void) {
   draw_background(back_buf_ptr);
 
   // --- Set up players --- //
-  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800,0};
-  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F,0};
+  struct player p1 = {160, 120, 160, 120, 1, 0, 0xF800, 0};
+  struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0};
 
   // --- Set up pointers --- //
   volatile int* mtime_ptr = (int*)0xFF202100;
@@ -9079,39 +9087,56 @@ int main(void) {
   *characterBuffer_ptr = 'A';
 
   // -- MAIN GAME LOOP -- //
-  while (1) {
+  while (!gameEnd) {
     // If the game is over light up an LED
     if (progressx >= 242) {
       *LEDR_ptr = 0x1;
-      // gameEnd = true;
+      gameEnd = true;
     }
 
     // Trigger random events at specific times
-    if (progressx == 160) {
-      chooseRandomEvent();
+    if (progressx >= 160 && eventFlag == false) {
+      // raise flag
+      eventFlag = true;
+      // run random event
+      int randomEvent = chooseRandomEvent();
+      printf("%d random event number\n", randomEvent);
       *LEDR_ptr = 0x10;
+
+      clearPaintEvent(back_buf_ptr);
+      for (int y = 38; y < 176; y++) {
+        for (int x = 23; x < 295; x++) {
+          plot_pixel(x, y, background[y * SCREEN_W + x], back_buf_ptr);
+        }
+      }
+      wait_for_vsync();
+      pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+
+      for (int y = 38; y < 176; y++) {
+        for (int x = 23; x < 295; x++) {
+          plot_pixel(x, y, background[y * SCREEN_W + x], pixel_buffer_start);
+        }
+      }
     }
 
     // --- PLAYER UPDATES --- //
 
-     volatile int* sw_ptr = (int*)SW_BASE;
+    volatile int* sw_ptr = (int*)SW_BASE;
     int sw_value = *sw_ptr;
     // Update player scores
 
     // Read keyboard input for player 1
 
-    if (sw_value & 0b100){
-    read_keyboard_input(&p1);
+    if (sw_value & 0b100) {
+      read_keyboard_input(&p1);
 
-    // Read switch input for player 1 to shoot
-    read_switch_input(&p1, back_buf_ptr);
-    }
-    else if (sw_value & 0b1000){
+      // Read switch input for player 1 to shoot
+      read_switch_input(&p1, back_buf_ptr);
+    } else if (sw_value & 0b1000) {
       read_keyboard_input(&p2);
 
       // Read switch input for player 1 to shoot
       read_switch_input(&p2, back_buf_ptr);
-
     }
 
     // Update positions (old positions are saved inside update_player_position)
@@ -9121,11 +9146,8 @@ int main(void) {
     // Restore background where players WERE (old positions)
     restore_old_player_area(&p1, back_buf_ptr);
     restore_old_player_area(&p2, back_buf_ptr);
-    
 
     displayScore(&p1, &p2, back_buf_ptr);
-    
-
 
     // Draw players at NEW positions
     draw_player(&p1, back_buf_ptr);
@@ -9140,8 +9162,3 @@ int main(void) {
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   }
 }
-
-	
-	
-	
-	
