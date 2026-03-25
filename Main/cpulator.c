@@ -8614,6 +8614,8 @@ void restore_old_player_area(struct player* p, short* back_buf_ptr);
 void clearPaintEvent(short* back_buf_ptr);
 
 // Area calculation
+void draw_digit(int x, int y, int digit, short color, short* buf);
+void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr);
 void calculateArea(struct player* p);
 
 // --- DRAWING FUNCTIONS --- //
@@ -8854,6 +8856,108 @@ void clearPaintEvent(short* back_buf_ptr) {
 // Display the score of each player on hex?
 // Read the game window on the background and if the pixel matches the player
 // colour add to that player's score
+const unsigned char font[10][5] = {
+    {0x1F,0x11,0x11,0x11,0x1F}, // 0
+    {0x04,0x0C,0x04,0x04,0x1F}, // 1
+    {0x1F,0x01,0x1F,0x10,0x1F}, // 2
+    {0x1F,0x01,0x1F,0x01,0x1F}, // 3
+    {0x11,0x11,0x1F,0x01,0x01}, // 4
+    {0x1F,0x10,0x1F,0x01,0x1F}, // 5
+    {0x1F,0x10,0x1F,0x11,0x1F}, // 6
+    {0x1F,0x01,0x02,0x04,0x08}, // 7
+    {0x1F,0x11,0x1F,0x11,0x1F}, // 8
+    {0x1F,0x11,0x1F,0x01,0x1F}  // 9
+};
+
+void draw_digit(int x, int y, int digit, short color, short* buf) {
+    for (int row = 0; row < 5; row++) {
+        unsigned char row_data = font[digit][row];
+        
+        for (int col = 0; col < 5; col++) {
+            // Check if the bit is set (MSB is leftmost)
+            if (row_data & (1 << (4 - col))) {
+
+                // Calculate the top-left corner of the scaled "pixel" block
+                // Width multiplier = 2, Height multiplier = 3
+                int base_x = x + col * 2;
+                int base_y = y + row * 3;
+
+                // Fill a 2-pixel wide by 3-pixel high rectangle
+                for (int dx = 0; dx < 2; dx++) {
+                    for (int dy = 0; dy < 3; dy++) {
+                        plot_pixel(base_x + dx, base_y + dy, color, buf);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void displayScore(struct player* p1, struct player* p2, short* back_buf_ptr) {
+  int padding = 15;
+  int Bottom_Left_Y = 213;
+
+  // --- Player 1 Score ---
+  calculateArea(p1);
+  int p1_score_disp = p1->score / 10; 
+  int p1_thousands = p1_score_disp / 1000;
+  int p1_hundreds = (p1_score_disp % 1000) / 100;
+  int p1_tens = (p1_score_disp % 100) / 10;
+  int p1_ones = p1_score_disp % 10;
+
+  int p1_X = 10;
+
+  // Clear P1 area
+  for (int i = 0; i < 4; i++) {
+    for (int y = Bottom_Left_Y; y < Bottom_Left_Y + 15; y++) {
+      for (int x = p1_X + i * padding; x < p1_X + (i + 1) * padding; x++) {
+        plot_pixel(x, y, background[y * SCREEN_W + x], back_buf_ptr);
+      }
+    }
+  }
+
+  // Draw P1 digits
+  if (p1_thousands != 0)
+    draw_digit(p1_X, Bottom_Left_Y, p1_thousands, p1->colour, back_buf_ptr);
+  if (p1_thousands != 0 || p1_hundreds != 0)
+    draw_digit(p1_X + padding, Bottom_Left_Y, p1_hundreds, p1->colour, back_buf_ptr);
+  if (p1_thousands != 0 || p1_hundreds != 0 || p1_tens != 0)
+    draw_digit(p1_X + padding * 2, Bottom_Left_Y, p1_tens, p1->colour, back_buf_ptr);
+  
+  draw_digit(p1_X + padding * 3, Bottom_Left_Y, p1_ones, p1->colour, back_buf_ptr);
+
+
+  // --- Player 2 Score ---
+  calculateArea(p2);
+  int p2_score_disp = p2->score / 10;
+  int p2_thousands = p2_score_disp / 1000;
+  int p2_hundreds = (p2_score_disp % 1000) / 100;
+  int p2_tens = (p2_score_disp % 100) / 10;
+  int p2_ones = p2_score_disp % 10;
+
+  // Positioned on the right (320 - 60px for digits - 10px margin)
+  int p2_X = 253; 
+
+  // Clear P2 area
+  for (int i = 0; i < 4; i++) {
+    for (int y = Bottom_Left_Y; y < Bottom_Left_Y + 15; y++) {
+      for (int x = p2_X + i * padding; x < p2_X + (i + 1) * padding; x++) {
+        plot_pixel(x, y, background[y * SCREEN_W + x], back_buf_ptr);
+      }
+    }
+  }
+
+  // Draw P2 digits
+  if (p2_thousands != 0)
+    draw_digit(p2_X, Bottom_Left_Y, p2_thousands, p2->colour, back_buf_ptr);
+  if (p2_thousands != 0 || p2_hundreds != 0)
+    draw_digit(p2_X + padding, Bottom_Left_Y, p2_hundreds, p2->colour, back_buf_ptr);
+  if (p2_thousands != 0 || p2_hundreds != 0 || p2_tens != 0)
+    draw_digit(p2_X + padding * 2, Bottom_Left_Y, p2_tens, p2->colour, back_buf_ptr);
+
+  draw_digit(p2_X + padding * 3, Bottom_Left_Y, p2_ones, p2->colour, back_buf_ptr);
+}
+
 void calculateArea(struct player* p) {
   p->score = 0;  // reset score before recounting
 
@@ -9019,10 +9123,7 @@ int main(void) {
     restore_old_player_area(&p2, back_buf_ptr);
     
 
-    calculateArea(&p1);
-    calculateArea(&p2);
-    printf("player1 score: %d\n", p1.score);
-    printf("player2 score: %d\n", p2.score);
+    displayScore(&p1, &p2, back_buf_ptr);
     
 
 
