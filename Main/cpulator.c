@@ -12335,7 +12335,6 @@ int main(void) {
       if (roundNumber < 3) {
         printf("next round");
         restart(back_buf_ptr);
-        restart(pixel_buffer_start);
 
         for (int y = 38; y < 176; y++) {
           for (int x = 23; x < 295; x++) {
