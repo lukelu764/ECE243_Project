@@ -11672,6 +11672,8 @@ unsigned short player1end[36990] = {
 // --- GLOBAL VARIABLES --- //
 volatile bool gameEnd = false;
 volatile bool eventFlag = false;
+volatile int pixel_buffer_start;
+volatile int restart_flag = 0;
 
 volatile int roundNumber = 0;
 volatile int player1totalscore = 0;
@@ -11699,7 +11701,6 @@ struct player {
 // --- FUNCTION HEADERS --- //
 
 // Drawing Functions
-volatile int pixel_buffer_start;
 void plot_pixel(int x, int y, short int line_colour, short* back_buf_ptr);
 void wait_for_vsync(void);
 void draw_background(short* back_buf_ptr);
@@ -11711,7 +11712,6 @@ void update_player_position(struct player* p);
 void update_player_movement(struct player* p, int new_dx, int new_dy);
 void read_keyboard_input(struct player* p);
 void shoot(struct player* p, short* back_buf_ptr);
-void read_switch_input(short* back_buf_ptr);
 void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr);
 void draw_player(struct player* p, short* back_buf_ptr);
 
@@ -11848,15 +11848,6 @@ void shoot(struct player* p, short* back_buf_ptr) {
   p->shoot_cooldown = p->shoot_cooldown_value;
 }
 
-void read_switch_input(short* back_buf_ptr) {
-  volatile int* sw_ptr = (int*)SW_BASE;
-  int sw_value = *sw_ptr;
-
-  if (sw_value & 2) {
-    // Restart the game
-    restart(back_buf_ptr);
-  }
-}
 
 void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr) {
   // Check bounds within the window
@@ -12138,52 +12129,6 @@ void restart(short* back_buf_ptr) {
   eventFlag = false;
 }
 
-// --- INTERRUPTS --- // MIGHT NOT NEED
-#define clock_rate 100000000
-#define quarter_clock clock_rate / 4
-
-// Interrupt Functions
-static void handler(void) __attribute__((interrupt("machine")));
-void set_mtimer(void);
-void mtimer_ISR(void);
-
-// Volatile interrupts variables
-
-// Interrupt handler
-void handler(void) {
-  int mcause_value;
-  __asm__ volatile("csrr %0, mcause" : "=r"(mcause_value));
-  if (mcause_value == 0x80000007)  // machine timer
-    mtimer_ISR();
-}
-
-// Interrupt Service Routines
-typedef long long int64;
-
-// Timer
-void mtimer_ISR(void) {
-  volatile unsigned int* mtime_ptr = (unsigned int*)0xFF202100;
-  int64 mtimecmp64;
-  mtimecmp64 = *(mtime_ptr + 3);  // read high word of 64-bit register
-  mtimecmp64 = (mtimecmp64 << 32) | *(mtime_ptr + 2);   // read low word
-  mtimecmp64 = mtimecmp64 + (int64)quarter_clock;       // adjus timeout
-  *(mtime_ptr + 2) = (unsigned int)mtimecmp64;          // store low word
-  *(mtime_ptr + 3) = (unsigned int)(mtimecmp64 >> 32);  // store high word
-}
-
-// Configure the Nios V machine timer
-void set_mtimer(void) {
-  volatile int* mtime_ptr = (int*)0xFF202100;
-  unsigned int mtime_h, mtime_l, carry, mtimecmp_l;
-  do {
-    mtime_h = *(mtime_ptr + 1);  // read mtime high word
-    mtime_l = *(mtime_ptr);      // read mtime low word
-  } while (*(mtime_ptr + 1) != mtime_h);
-  mtimecmp_l = mtime_l + quarter_clock;  // add to current time
-  carry = mtimecmp_l < mtime_l ? 1 : 0;  // check for carry-out
-  *(mtime_ptr + 2) = mtimecmp_l;         // set mtimecmp low word
-  *(mtime_ptr + 3) = mtime_h + carry;    // set mtimecmp high word
-}
 
 void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
   volatile int* PS2_ptr = (int*)PS2_BASE;
@@ -12269,6 +12214,70 @@ void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
   }
 }
 
+
+//-------------------------Key Inturupt Stuff-------------------------//
+static void handler(void) __attribute__ ((interrupt ("machine")));
+void set_KEY(void);
+void KEY_ISR(void);
+void init_interrupts(void);
+#define LEDR_BASE  0xFF200000
+ 
+void setup_interrupts(void) {
+    int mstatus_value, mtvec_value, mie_value;
+ 
+    /* Disable global interrupts */
+    mstatus_value = 0b1000;
+    __asm__ volatile ("csrc mstatus, %0" :: "r"(mstatus_value));
+ 
+    /* Set trap handler */
+    mtvec_value = (int)&handler;
+    __asm__ volatile ("csrw mtvec, %0" :: "r"(mtvec_value));
+ 
+    /* Disable all interrupt sources */
+    __asm__ volatile ("csrr %0, mie" : "=r"(mie_value));
+    __asm__ volatile ("csrc mie, %0" :: "r"(mie_value));
+ 
+    /* Enable KEY interrupt only */
+    mie_value = 0x40000;
+    __asm__ volatile ("csrs mie, %0" :: "r"(mie_value));
+ 
+    /* Enable global interrupts */
+    __asm__ volatile ("csrs mstatus, %0" :: "r"(mstatus_value));
+}
+ 
+void handler(void) {
+    int mcause_value;
+    __asm__ volatile ("csrr %0, mcause" : "=r"(mcause_value));
+ 
+    if (mcause_value == 0x80000012) {
+        KEY_ISR();
+    }
+}
+ 
+void set_KEY(void) {
+    volatile int *KEY_ptr = (int *) KEY_BASE;
+ 
+    *(KEY_ptr + 3) = 0xF;  // clear EdgeCapture
+    *(KEY_ptr + 2) = 0x1;  // enable KEY0 interrupt
+}
+ 
+void KEY_ISR(void) {
+    volatile int *KEY_ptr  = (int *) KEY_BASE;
+    volatile int *LEDR_ptr = (int *) LEDR_BASE;
+    int pressed;
+ 
+    pressed = *(KEY_ptr + 3);   // EdgeCapture
+    *(KEY_ptr + 3) = pressed;   // clear
+ 
+    if (pressed & 0x1) { //KEY0
+      *LEDR_ptr ^= 0x2;
+      restart_flag = 1;
+    }
+}
+ 
+//--------------------------------------------------------
+
+
 // --- MAIN PROGRAM -- //
 int main(void) {
   // --- Graphics --- //
@@ -12298,32 +12307,24 @@ int main(void) {
   struct player p2 = {100, 100, 100, 100, 0, 1, 0x001F, 0, 15, 7, 0, 30};
 
   // --- Set up pointers --- //
-  volatile int* mtime_ptr = (int*)0xFF202100;
   volatile int* LEDR_ptr = (int*)0xFF200000;
-  volatile int* HEX3_HEX0_ptr = (int*)0xFF200020;
   volatile int* characterBuffer_ptr = (int*)0x09000000;
 
-  set_mtimer();
-  int mstatus_value, mtvec_value, mie_value;
-  mstatus_value = 0b1000;  // interrupt bit mask
-  // disable interrupts
-  __asm__ volatile("csrc mstatus, %0" ::"r"(mstatus_value));
-  mtvec_value = (int)&handler;  // set trap address
-  __asm__ volatile("csrw mtvec, %0" ::"r"(mtvec_value));
-  // disable all interrupts that are currently enabled
-  __asm__ volatile("csrr %0, mie" : "=r"(mie_value));
-  __asm__ volatile("csrc mie, %0" ::"r"(mie_value));
-  mie_value = 0x50088;  // KEY, itimer, mtimer, SW interrupts
-  // set interrupt enables
-  __asm__ volatile("csrs mie, %0" ::"r"(mie_value));
-  // enable Nios V interrupts
-  __asm__ volatile("csrs mstatus, %0" ::"r"(mstatus_value));
 
   // write a character
   *characterBuffer_ptr = 'A';
 
+  //set up interrupts
+  set_KEY();
+  setup_interrupts();
+
   // -- MAIN GAME LOOP -- //
   while (!gameEnd) {
+    if (restart_flag) {
+      restart(back_buf_ptr);
+      restart_flag = 0;
+    }
+
     // If the game is over light up an LED
     if (progressx >= 242) {
       *LEDR_ptr = 0x1;
@@ -12395,9 +12396,8 @@ int main(void) {
     int sw_value = *sw_ptr;
     // Update player scores
 
-    // Read keyboard input for player 1
-    read_switch_input(back_buf_ptr);
 
+    //player controls
     read_ps2key(&p1, &p2, back_buf_ptr);
 
     // Update positions (old positions are saved inside update_player_position)
