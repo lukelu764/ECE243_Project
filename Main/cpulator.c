@@ -12894,15 +12894,6 @@ void shoot(struct player* p, short* back_buf_ptr) {
   p->shoot_cooldown = p->shoot_cooldown_value;
 }
 
-void read_switch_input(short* back_buf_ptr) {
-  volatile int* sw_ptr = (int*)SW_BASE;
-  int sw_value = *sw_ptr;
-
-  if (sw_value & 2) {
-    // Restart the game
-    restart(back_buf_ptr);
-  }
-}
 
 void safe_plot_pixel(int x, int y, short int colour, short* back_buf_ptr) {
   // Check bounds within the window
@@ -12960,8 +12951,7 @@ void draw_player(struct player* p, short* back_buf_ptr) {
 }
 
 // --- BACKGROUND RESTORE FUNCTIONS --- //
-void restore_background_area(int x_min, int x_max, int y_min, int y_max,
-                             short* back_buf_ptr) {
+void restore_background_area(int x_min, int x_max, int y_min, int y_max, short* back_buf_ptr) {
   // Clamp to window bounds
   if (x_min < WINDOW_START_X) {
     x_min = WINDOW_START_X;
@@ -13004,7 +12994,7 @@ int chooseRandomEvent() {
   int seed = *(mtime_ptr);
   srand(seed);
   int randomEventNumber = rand() % 6;
-  printf("random number: %d\n", randomEventNumber);
+  //printf("random number: %d\n", randomEventNumber);
 
   return randomEventNumber;
 }
@@ -13336,10 +13326,8 @@ void KEY_ISR(void) {
 
 void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
   volatile int* PS2_ptr = (int*)PS2_BASE;
-  volatile int* LED_ptr = (int*)LED_BASE;
 
   static int got_f0 = 0;
-  static int led_state = 0;
 
   while (1) {
     int data = *PS2_ptr;
@@ -13359,60 +13347,48 @@ void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
           // player 1  ------------------
           case 0x1D:  // W, move up
             update_player_movement(p1, 0, -1);
-            //led_state ^= (1 << 0);
             break;
 
           case 0x1B:  // S, move down
             update_player_movement(p1, 0, 1);
-            //led_state ^= (1 << 1);
             break;
 
           case 0x1C:  // A, move left
             update_player_movement(p1, -1, 0);
-            //led_state ^= (1 << 2);
             break;
 
           case 0x23:  // D, move right
             update_player_movement(p1, 1, 0);
-            //led_state ^= (1 << 3);
             break;
 
           case 0x21:  // C, shoot
             shoot(p1, back_buf_ptr);
-            //led_state ^= (1 << 4);
             break;
 
           // player 2  ------------------
           case 0x43:  // I, move up
             update_player_movement(p2, 0, -1);
-            //led_state ^= (1 << 5);
             break;
 
           case 0x3B:  // J, move left
             update_player_movement(p2, -1, 0);
-            //led_state ^= (1 << 6);
             break;
 
           case 0x42:  // K, move down
             update_player_movement(p2, 0, 1);
-            //led_state ^= (1 << 7);
             break;
 
           case 0x4B:  // L, move right
             update_player_movement(p2, 1, 0);
-            //led_state ^= (1 << 8);
             break;
 
           case 0x31:  // N, shoot
             shoot(p2, back_buf_ptr);
-            //led_state ^= (1 << 9);
             break;
 
           default:
             break;
         }
-
-        *LED_ptr = led_state;
       }
     }
   }
@@ -13467,17 +13443,17 @@ game_loop:
 
     // If the game is over light up an LED
     if (progressx >= 242) {
-      *LEDR_ptr = 0x1;
+      *LEDR_ptr |= 0x1;  // light up LED0 to indicate end of round
 
       roundNumber += 1;
-      printf("round %d done\n", roundNumber);
+      //printf("round %d done\n", roundNumber);
 
       // increment total player score
       if (p1.score > p2.score) {
-        printf("player1 wins this round\n");
+        // printf("player1 wins this round\n");
         player1totalscore += 1;
       } else if (p2.score > p1.score) {
-        printf("player2 wins this round\n");
+        // printf("player2 wins this round\n");
         player2totalscore += 1;
       }
 
@@ -13486,7 +13462,7 @@ game_loop:
   		 *HEX5_HEX4_ptr = (bit_codes[player2totalscore] << 8);
 
 
-        printf("next round\n");
+        //printf("next round\n");
         restart(back_buf_ptr);
 
       }
@@ -13503,8 +13479,8 @@ game_loop:
       eventFlag = true;
       // run random event
       int randomEvent = chooseRandomEvent();
-      printf("%d random event number\n", randomEvent);
-      *LEDR_ptr = 0x10;
+      //printf("%d random event number\n", randomEvent);
+      *LEDR_ptr = (1 <<9);
 
       // --- TEST CLEAR PAINT EVENT --- //
       clearPaintEvent(back_buf_ptr);
@@ -13527,9 +13503,8 @@ game_loop:
     int sw_value = *sw_ptr;
     // Update player scores
 
-    // Read keyboard input for player 1
-    read_switch_input(back_buf_ptr);
 
+    //handle controls
     read_ps2key(&p1, &p2, back_buf_ptr);
 
     // Update positions (old positions are saved inside update_player_position)
