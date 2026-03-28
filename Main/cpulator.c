@@ -22006,6 +22006,18 @@ void update_player_position(struct player* p) {
   p->x += p->dx;
   p->y += p->dy;
 
+  if (p->dx > 0) {
+    p->dx--;
+  } else if (p->dx < 0) {
+    p->dx++;
+  }
+
+  if (p->dy > 0) {
+    p->dy--;
+  } else if (p->dy < 0) {
+    p->dy++;
+  }
+
   // Clamp position to window bounds
   if (p->x < WINDOW_START_X) {
     p->x = WINDOW_START_X;
@@ -22021,8 +22033,9 @@ void update_player_position(struct player* p) {
 }
 
 void update_player_movement(struct player* p, int new_dx, int new_dy) {
-  p->dx = new_dx;
-  p->dy = new_dy;
+  int scalling_factor = 4;  // Adjust this factor to control acceleration
+  p->dx += new_dx*scalling_factor;
+  p->dy += new_dy*scalling_factor;
 }
 
 
@@ -22551,10 +22564,12 @@ void restore_background_area(int x_min, int x_max, int y_min, int y_max, short* 
 // this resets a square of where the player was to the background colour
 // kinda naive but like lazy method and fast enough
 void restore_old_player_area(struct player* p, short* back_buf_ptr) {
-  int x_min = p->old_x - SPRITE_WIDTH;
-  int x_max = p->old_x + 10;
-  int y_min = p->old_y - SPRITE_HEIGHT;
-  int y_max = p->old_y + 10;
+  int padding = 5;
+
+  int x_min = p->old_x - SPRITE_WIDTH - padding;
+  int x_max = p->old_x + 10 + padding;
+  int y_min = p->old_y - SPRITE_HEIGHT - padding;
+  int y_max = p->old_y + 10 + padding;
 
   restore_background_area(x_min, x_max, y_min, y_max, back_buf_ptr);
 }
@@ -23139,7 +23154,7 @@ game_loop:
     draw_player_2(&p2, back_buf_ptr);
 
     // Update progress bar
-    progressx = progressx + 0.5;
+    progressx = progressx + 0.2;
     updateProgressBar(back_buf_ptr);
 
     // Wait for vertical sync and swap buffers
