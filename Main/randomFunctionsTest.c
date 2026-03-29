@@ -1,9 +1,9 @@
 // Main Program CPULator Version
-// Last saved 3/29 1:23 PM
+// Last saved 3/29 3:10 PM
 
 // Latest changes
 // random events that affect users now randomly choose the player
-// Attempting audio
+// beep now works
 
 // ----- FILES ----- //
 
@@ -21877,6 +21877,9 @@ volatile int* HEX3_HEX0_ptr = (int*)0xFF200020;
 volatile int* HEX5_HEX4_ptr = (int*)0xFF200030;
 char bit_codes[] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x67};
 
+// audio global variables 
+int beepFlag = 0; 
+
 // --- STRUCTS --- //
 struct player {
   int x;
@@ -22378,6 +22381,7 @@ void restart(short* back_buf_ptr, struct player* p1, struct player* p2) {
 
   progressx = 77;
   eventFlag = false;
+  beepFlag = 0; 
 
   // restore player drawing values
   p1->player_radius = DEFAULT_PLAYER_RADIUS;
@@ -22482,6 +22486,7 @@ void KEY_ISR(void) {
   if (pressed & 0x1) {  // KEY0
     *LEDR_ptr ^= 0x2;
     restart_flag = 1;
+    beepFlag = 0; 
   }
 }
 
@@ -22558,8 +22563,6 @@ void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
 }
 
 // --- AUDIO --- //
-#define AUDIO_BASE 0xFF203040
-volatile int* audio_ptr = (int*)AUDIO_BASE;
 
 // Make a beep sound when the progress bar is almost up
 // 1000Hz frequency beep 1000 samples/s
@@ -22568,12 +22571,23 @@ volatile int* audio_ptr = (int*)AUDIO_BASE;
 
 // samples per cycle = 8000/1000 = 8 samples
 // will set max amplitude to 2000 
+volatile int*audio_ptr = (int*)0xff203040; 
 
 const int sine_beep[8] = {
      0, 14142, 20000, 14142,
      0,-14142,-20000,-14142
 };
 
+// need to feed empty samples to the audio FIFO until a beep is triggered 
+// global variables to keep track of when to trigger beeps, etc. 
+
+int beepSignal = 0; // whether or not a beep is triggered 
+int beepSamplesLeft = 0; 
+int beepSampleIndex = 0;
+
+
+
+/*
 void play_beep(){
     volatile int*audio_ptr = (int*)0xff203040; 
     int num_samples = 800; 
@@ -22582,13 +22596,54 @@ void play_beep(){
     fifospace = *(audio_ptr +1); 
 
     for (int i = 0; i < num_samples; i++){
-        if ((fifospace & 0X00FF0000) > 0){
+        if ((fifospace && 0X00FF0000) > 0){
             *(audio_ptr + 2) = sine_beep[i]; 
             *(audio_ptr + 3) = sine_beep[i]; 
         }
     }
 
+}*/
+
+void run_audio(){ 
+    int fifospace = *(audio_ptr + 1); 
+
+    int output = 0;
+    
+    while ((fifospace & 0X00FF0000) > 0 ){
+        // if a beep is triggered and it is not done going through all the samples yet
+        // then make the output the sine signal output
+        if (beepSignal && (beepSamplesLeft > 0)){
+            output = sine_beep[beepSampleIndex]; 
+            beepSampleIndex = (beepSampleIndex + 1) & 7; // increment beep sample index but also keep it within range
+            beepSamplesLeft --; 
+
+            // turn beep signal off when there are no more samples left
+            if (beepSamplesLeft == 0){
+            beepSignal = 0; 
+            }
+        }
+        else{
+            // otherwise feed the audio output no noise
+            output = 0; 
+        }
+        
+
+        *(audio_ptr + 2) = output << 16; 
+        *(audio_ptr + 3) = output << 16; 
+
+        // update fiforead 
+        fifospace = *(audio_ptr + 1); 
+
+    }
 }
+
+void play_beep(){ 
+    // turn beep signal on
+    beepSignal = 1; 
+    beepSamplesLeft = 800; // fill full samples 
+    beepSampleIndex = 0; // start index from beginning
+}
+
 
 
 
@@ -22649,6 +22704,11 @@ game_loop:
     // --- AUDIO OUTPUT STUFF --- //
 
     // -------------------------- //
+
+    if (progressx >= 230 && (beepFlag == 0)){ 
+        play_beep(); 
+        beepFlag = 1; 
+    }
 
     // If the game is over light up an LED
     if (progressx >= 242) {
@@ -22842,6 +22902,9 @@ game_loop:
       }
     }
     // --------------------- //
+
+    // --- RUN AUDIO --- //
+    run_audio();
 
     // --- PLAYER UPDATES --- //
 
