@@ -1,12 +1,9 @@
 // Main Program CPULator Version
-// Last saved 3/28 6:08 PM
+// Last saved 3/29 1:23 PM
 
 // Latest changes
-// swap function added 
-// random event sprites get drawn
-
-// Next changes
-// add audio for when game timer is about to end
+// random events that affect users now randomly choose the player
+// Attempting audio
 
 // ----- FILES ----- //
 
@@ -22160,6 +22157,17 @@ int chooseRandomEvent() {
   return randomEventNumber;
 }
 
+int chooseRandomPlayer() {
+  // Generates either a 1 or 2 to choose which player gets affected in random
+  // functions
+  int seed = *(mtime_ptr);
+  srand(seed);
+  // % 2 produces 0 or 1 and then shift by 1 to get 1 or 2
+  int randomPlayerNumber = (rand() % 2) + 1;
+
+  return randomPlayerNumber;
+}
+
 void clearPaintEvent(short* back_buf_ptr) {
   volatile int* pixel_ctrl_ptr = (int*)0xFF203020;
   for (int y = 38; y < 176; y++) {
@@ -22170,26 +22178,42 @@ void clearPaintEvent(short* back_buf_ptr) {
   }
 }
 
-void increasePaintbrush(struct player* p1, struct player* p2) {
+void increasePaintbrush(struct player* p1, struct player* p2,
+                        int playerAffected) {
   int newPlayerSize = 20;
   int newPaintSize = 10;
 
   // Also need a random function to decide which player's paint size gets
   // changed testing by changing p1 for now
 
-  p1->player_radius = newPlayerSize;
-  p1->shoot_radius = newPaintSize;
+  if (playerAffected == 1) {
+    p1->player_radius = newPlayerSize;
+    p1->shoot_radius = newPaintSize;
+  }
+
+  if (playerAffected == 2) {
+    p2->player_radius = newPlayerSize;
+    p2->shoot_radius = newPaintSize;
+  }
 }
 
-void decreasePaintbrush(struct player* p1, struct player* p2) {
+void decreasePaintbrush(struct player* p1, struct player* p2,
+                        int playerAffected) {
   int newPlayerSize = 10;
   int newPaintSize = 5;
 
   // Also need a random function to decide which player's paint size gets
   // changed testing by changing p2 for now
 
-  p2->player_radius = newPlayerSize;
-  p2->shoot_radius = newPaintSize;
+  if (playerAffected == 1) {
+    p1->player_radius = newPlayerSize;
+    p1->shoot_radius = newPaintSize;
+  }
+
+  if (playerAffected == 2) {
+    p2->player_radius = newPlayerSize;
+    p2->shoot_radius = newPaintSize;
+  }
 }
 
 // INCREASE OF DECREASING SHOOT COOLDOWN
@@ -22537,6 +22561,38 @@ void read_ps2key(struct player* p1, struct player* p2, short* back_buf_ptr) {
 #define AUDIO_BASE 0xFF203040
 volatile int* audio_ptr = (int*)AUDIO_BASE;
 
+// Make a beep sound when the progress bar is almost up
+// 1000Hz frequency beep 1000 samples/s
+// 2000Hz frequency beep
+// audio is sampled at 8 kHz 8000 samples/s
+
+// samples per cycle = 8000/1000 = 8 samples
+// will set max amplitude to 2000 
+
+const int sine_beep[8] = {
+     0, 14142, 20000, 14142,
+     0,-14142,-20000,-14142
+};
+
+void play_beep(){
+    volatile int*audio_ptr = (int*)0xff203040; 
+    int num_samples = 800; 
+
+    int fifospace; 
+    fifospace = *(audio_ptr +1); 
+
+    for (int i = 0; i < num_samples; i++){
+        if ((fifospace & 0X00FF0000) > 0){
+            *(audio_ptr + 2) = sine_beep[i]; 
+            *(audio_ptr + 3) = sine_beep[i]; 
+        }
+    }
+
+}
+
+
+
+
 // --- MAIN PROGRAM -- //
 int main(void) {
   // --- Graphics --- //
@@ -22634,14 +22690,28 @@ game_loop:
     // 4 - decrease player cooldown
     // 5 - swap player colours
 
+    // Sprite Window Dimensions
+
+    // Events that affect all players/entire game state is drawn in the top
+    // right corner
+    int topEventWindowx = 255;
+    int topEventWindowy = 9;
+
+    // Events that affect individual players are drawn in the player boxes
+    int player1windowx = 7;
+    int player2windowx = 250;
+    int playerwindowy = 203;
+
     // TRIGGER RANDOM EVENT
     if (progressx >= 160 && eventFlag == false) {
       // raise flag
       eventFlag = true;
-      // run random event  
+      // run random event
       int randomEvent = chooseRandomEvent();
-      //printf("%d random event number\n", randomEvent);
+      // printf("%d random event number\n", randomEvent);
       *LEDR_ptr = (1 << 9);
+      int playerAffected = chooseRandomPlayer();
+        printf("%d player affect\n", playerAffected);
 
       // CLEAR PAINT EVENT
       if (randomEvent == 0) {
@@ -22652,9 +22722,6 @@ game_loop:
         clearPaintEvent(pixel_buffer_start);
 
         // draw clear paint event sprite
-        int topEventWindowx = 255;
-        int topEventWindowy = 9;
-
         for (int y = 0; y < 25; y++) {
           for (int x = 0; x < 60; x++) {
             plot_pixel(topEventWindowx + x, topEventWindowy + y,
@@ -22663,8 +22730,10 @@ game_loop:
                        clearcanvassprite[y * 60 + x], back_buf_ptr);
           }
         }
+
         wait_for_vsync();
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+
         for (int y = 0; y < 25; y++) {
           for (int x = 0; x < 60; x++) {
             plot_pixel(topEventWindowx + x, topEventWindowy + y,
@@ -22675,31 +22744,37 @@ game_loop:
         }
       }
 
-      int player1windowx = 7;
-      int player2windowx = 250;
-      int playerwindowy = 203;
-
       // INCREASE PAINT SIZE
       if (randomEvent == 1) {
         // Run increase paint size event
-        increasePaintbrush(&p1, &p2);
+        int playerAffected = chooseRandomPlayer();
+        printf("%d player affect\n", playerAffected);
+        increasePaintbrush(&p1, &p2, playerAffected);
+
+        int playerWindowX = player1windowx;
+
+        if (playerAffected == 2) {
+          playerWindowX = player2windowx;
+        }
 
         // draw increasePaintbrush event sprite
         for (int y = 0; y < 30; y++) {
           for (int x = 0; x < 60; x++) {
-            plot_pixel(player1windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizeupsprite[y * 60 + x], pixel_buffer_start);
-            plot_pixel(player1windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizeupsprite[y * 60 + x], back_buf_ptr);
           }
         }
+
         wait_for_vsync();
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+
         for (int y = 0; y < 30; y++) {
           for (int x = 0; x < 60; x++) {
-            plot_pixel(player1windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizeupsprite[y * 60 + x], pixel_buffer_start);
-            plot_pixel(player1windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizeupsprite[y * 60 + x], back_buf_ptr);
           }
         }
@@ -22708,24 +22783,34 @@ game_loop:
       // DECREASE PAINT SIZE
       if (randomEvent == 2) {
         // Run decrease paint size event
-        decreasePaintbrush(&p1, &p2);
+        int playerAffected = chooseRandomPlayer();
+        printf("%d player affect\n", playerAffected);
+        decreasePaintbrush(&p1, &p2, playerAffected);
+
+        int playerWindowX = player1windowx;
+
+        if (playerAffected == 2) {
+          playerWindowX = player2windowx;
+        }
 
         // draw decreasePaintbrush event sprite
         for (int y = 0; y < 30; y++) {
           for (int x = 0; x < 60; x++) {
-            plot_pixel(player2windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizedownsprite[y * 60 + x], pixel_buffer_start);
-            plot_pixel(player2windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizedownsprite[y * 60 + x], back_buf_ptr);
           }
         }
+
         wait_for_vsync();
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+
         for (int y = 0; y < 30; y++) {
           for (int x = 0; x < 60; x++) {
-            plot_pixel(player2windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizedownsprite[y * 60 + x], pixel_buffer_start);
-            plot_pixel(player2windowx + x, playerwindowy + y,
+            plot_pixel(playerWindowX + x, playerwindowy + y,
                        sizedownsprite[y * 60 + x], back_buf_ptr);
           }
         }
@@ -22733,10 +22818,6 @@ game_loop:
 
       if (randomEvent == 3) {
         swapPlayerColours(&p1, &p2);
-
-        // draw clear paint event sprite
-        int topEventWindowx = 255;
-        int topEventWindowy = 9;
 
         for (int y = 0; y < 25; y++) {
           for (int x = 0; x < 60; x++) {
@@ -22746,8 +22827,10 @@ game_loop:
                        swapsprite[y * 60 + x], back_buf_ptr);
           }
         }
+
         wait_for_vsync();
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+
         for (int y = 0; y < 25; y++) {
           for (int x = 0; x < 60; x++) {
             plot_pixel(topEventWindowx + x, topEventWindowy + y,
@@ -22798,6 +22881,9 @@ game_loop:
   int player1area = p1.score;
   int player2area = p2.score;
 
+  *HEX3_HEX0_ptr = bit_codes[player2totalscore];
+  *HEX5_HEX4_ptr = (bit_codes[player1totalscore] << 8);
+
   if (player1totalscore > player2totalscore) {
     *LEDR_ptr = 0b100000000;
     for (int y = 0; y < 138; y++) {
@@ -22825,6 +22911,7 @@ game_loop:
   wait_for_vsync();
   pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   back_buf_ptr = (short*)*(pixel_ctrl_ptr + 1);
+
 
   while (true) {
     if (restart_flag) {
