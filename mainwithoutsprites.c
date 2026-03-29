@@ -22664,6 +22664,7 @@ void play_beep(){
 
 
 
+bool run_audio_flag = false;
 
 // --- MAIN PROGRAM -- //
 int main(void) {
@@ -22721,11 +22722,13 @@ game_loop:
     // --- AUDIO OUTPUT STUFF --- //
 
     // -------------------------- //
+
      if (progressx >= 220 && (beepFlag3 == 0)){ 
         lowBeepSignal = 1; 
         highBeepSignal = 0; 
         play_beep(); 
         beepFlag3  = 1; 
+        run_audio_flag = true;
     }
 
     if (progressx >= 225 && (beepFlag2 == 0)){ 
@@ -22733,6 +22736,7 @@ game_loop:
         highBeepSignal = 0;
         play_beep(); 
         beepFlag2 = 1; 
+        run_audio_flag = true;
     }
 
     if (progressx >= 230 && (beepFlag1 == 0)){ 
@@ -22740,6 +22744,7 @@ game_loop:
         highBeepSignal = 0;
         play_beep(); 
         beepFlag1 = 1; 
+        run_audio_flag = true;
     }
 
     if (progressx >= 235 && (beepFlag0 == 0)){ 
@@ -22747,6 +22752,7 @@ game_loop:
         highBeepSignal = 1;
         play_beep(); 
         beepFlag0 = 1; 
+        run_audio_flag = true;
     }
 
 
@@ -22944,7 +22950,10 @@ game_loop:
     // --------------------- //
 
     // --- RUN AUDIO --- //
-    run_audio();
+    if (run_audio_flag){
+        run_audio();
+        run_audio_flag = false;
+    }
 
     // --- PLAYER UPDATES --- //
 
