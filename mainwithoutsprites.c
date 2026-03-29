@@ -1,9 +1,9 @@
 // Main Program CPULator Version
-// Last saved 3/29 3:10 PM
+// Last saved 3/29 3:47 PM
 
 // Latest changes
-// random events that affect users now randomly choose the player
-// beep now works
+// game timer sound now works 
+// need to figure out timing
 
 // ----- FILES ----- //
 
@@ -21878,7 +21878,16 @@ volatile int* HEX5_HEX4_ptr = (int*)0xFF200030;
 char bit_codes[] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x67};
 
 // audio global variables 
-int beepFlag = 0; 
+int beepFlag3 = 0; 
+int beepFlag2 = 0; 
+int beepFlag1 = 0; 
+int beepFlag0 = 0; 
+
+int beepSignal = 0; // whether or not a beep is triggered 
+int lowBeepSignal = 0; // then determine if a low or high beep should be triggered
+int highBeepSignal = 0; 
+int beepSamplesLeft = 0; 
+int beepSampleIndex = 0;
 
 // --- STRUCTS --- //
 struct player {
@@ -22381,7 +22390,10 @@ void restart(short* back_buf_ptr, struct player* p1, struct player* p2) {
 
   progressx = 77;
   eventFlag = false;
-  beepFlag = 0; 
+  beepFlag3 = 0; 
+beepFlag2 = 0; 
+beepFlag1 = 0;  
+beepFlag0 = 0; 
 
   // restore player drawing values
   p1->player_radius = DEFAULT_PLAYER_RADIUS;
@@ -22486,7 +22498,10 @@ void KEY_ISR(void) {
   if (pressed & 0x1) {  // KEY0
     *LEDR_ptr ^= 0x2;
     restart_flag = 1;
-    beepFlag = 0; 
+    beepFlag3 = 0; 
+beepFlag2 = 0; 
+beepFlag1 = 0; 
+beepFlag0 = 0; 
   }
 }
 
@@ -22581,10 +22596,6 @@ const int sine_beep[8] = {
 // need to feed empty samples to the audio FIFO until a beep is triggered 
 // global variables to keep track of when to trigger beeps, etc. 
 
-int beepSignal = 0; // whether or not a beep is triggered 
-int beepSamplesLeft = 0; 
-int beepSampleIndex = 0;
-
 
 
 /*
@@ -22613,8 +22624,14 @@ void run_audio(){
         // if a beep is triggered and it is not done going through all the samples yet
         // then make the output the sine signal output
         if (beepSignal && (beepSamplesLeft > 0)){
-            output = sine_beep[beepSampleIndex]; 
-            beepSampleIndex = (beepSampleIndex + 1) & 7; // increment beep sample index but also keep it within range
+            if (lowBeepSignal){
+                output = sine_beep[beepSampleIndex]; 
+                beepSampleIndex = (beepSampleIndex + 1) & 7; // increment beep sample index but also keep it within range
+            } 
+            if (highBeepSignal){
+                output = sine_beep[beepSampleIndex]; 
+                beepSampleIndex = (beepSampleIndex + 2) & 7; // increment beep sample index but also keep it within range
+            }
             beepSamplesLeft --; 
 
             // turn beep signal off when there are no more samples left
@@ -22704,11 +22721,34 @@ game_loop:
     // --- AUDIO OUTPUT STUFF --- //
 
     // -------------------------- //
-
-    if (progressx >= 230 && (beepFlag == 0)){ 
+     if (progressx >= 220 && (beepFlag3 == 0)){ 
+        lowBeepSignal = 1; 
+        highBeepSignal = 0; 
         play_beep(); 
-        beepFlag = 1; 
+        beepFlag3  = 1; 
     }
+
+    if (progressx >= 225 && (beepFlag2 == 0)){ 
+        lowBeepSignal = 1; 
+        highBeepSignal = 0;
+        play_beep(); 
+        beepFlag2 = 1; 
+    }
+
+    if (progressx >= 230 && (beepFlag1 == 0)){ 
+        lowBeepSignal = 1; 
+        highBeepSignal = 0;
+        play_beep(); 
+        beepFlag1 = 1; 
+    }
+
+    if (progressx >= 235 && (beepFlag0 == 0)){ 
+        lowBeepSignal = 0; 
+        highBeepSignal = 1;
+        play_beep(); 
+        beepFlag0 = 1; 
+    }
+
 
     // If the game is over light up an LED
     if (progressx >= 242) {
@@ -22771,7 +22811,7 @@ game_loop:
       // printf("%d random event number\n", randomEvent);
       *LEDR_ptr = (1 << 9);
       int playerAffected = chooseRandomPlayer();
-        printf("%d player affect\n", playerAffected);
+      // printf("%d player affect\n", playerAffected);
 
       // CLEAR PAINT EVENT
       if (randomEvent == 0) {
@@ -22808,7 +22848,7 @@ game_loop:
       if (randomEvent == 1) {
         // Run increase paint size event
         int playerAffected = chooseRandomPlayer();
-        printf("%d player affect\n", playerAffected);
+        //printf("%d player affect\n", playerAffected);
         increasePaintbrush(&p1, &p2, playerAffected);
 
         int playerWindowX = player1windowx;
@@ -22844,7 +22884,7 @@ game_loop:
       if (randomEvent == 2) {
         // Run decrease paint size event
         int playerAffected = chooseRandomPlayer();
-        printf("%d player affect\n", playerAffected);
+        //printf("%d player affect\n", playerAffected);
         decreasePaintbrush(&p1, &p2, playerAffected);
 
         int playerWindowX = player1windowx;
@@ -22937,6 +22977,8 @@ game_loop:
     wait_for_vsync();
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     back_buf_ptr = (short*)*(pixel_ctrl_ptr + 1);
+
+
   }
 
   // Game End test
