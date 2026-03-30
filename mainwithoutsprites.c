@@ -22180,27 +22180,62 @@ void shoot(struct player* p, short* back_buf_ptr) {
     paint_sprite = p->left ? Paint_Full : Paint_Full_Inverse;
   }
  
+  int shift = p->scaling_factor - 2;
+  int scaled_width, scaled_height;
+  
+  if (shift < 0) {
+    scaled_width = PAINT_WIDTH >> (-shift);
+    scaled_height = PAINT_HEIGHT >> (-shift);
+  } else if (shift > 0) {
+    scaled_width = PAINT_WIDTH << shift;
+    scaled_height = PAINT_HEIGHT << shift;
+  } else {
+    scaled_width = PAINT_WIDTH;
+    scaled_height = PAINT_HEIGHT;
+  }
+  
   // First iteration: check even cells
   for (int py = 0; py < PAINT_HEIGHT; py++) {
     for (int px = 0; px < PAINT_WIDTH; px++) {
-      if ((px + py) % 2 == 0) {  // only process even cells
+      if ((px + py) % 2 == 0) {
         int sprite_idx = py * PAINT_WIDTH + px;
         int colour = paint_sprite[sprite_idx];
-   
-        // Check if pixel is not white (0xffff)
         if (colour != 0xffff) {
-          int screen_x = p->x + px - PAINT_WIDTH / 2;
-          int screen_y = p->y + py - PAINT_HEIGHT / 2;
-   
-          // Check bounds
-          if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
-              screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
-   
-            plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
-            background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
-   
-            p->ammo--;
-            if (p->ammo <= 0) return;  // exit when out of ammo
+          if (shift < 0) {
+            int screen_x = p->x + (px >> -shift) - (scaled_width >> 1);
+            int screen_y = p->y + (py >> -shift) - (scaled_height >> 1);
+            if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+              plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+              background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+              p->ammo--;
+              if (p->ammo <= 0) return;
+            }
+          } else if (shift > 0) {
+            int scale = 1 << shift;
+            for (int sy = 0; sy < scale; sy++) {
+              for (int sx = 0; sx < scale; sx++) {
+                int screen_x = p->x + (px << shift) + sx - (scaled_width >> 1);
+                int screen_y = p->y + (py << shift) + sy - (scaled_height >> 1);
+                if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                    screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+                  plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+                  background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+                  p->ammo--;
+                  if (p->ammo <= 0) return;
+                }
+              }
+            }
+          } else {
+            int screen_x = p->x + px - (scaled_width >> 1);
+            int screen_y = p->y + py - (scaled_height >> 1);
+            if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+              plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+              background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+              p->ammo--;
+              if (p->ammo <= 0) return;
+            }
           }
         }
       }
@@ -22210,24 +22245,45 @@ void shoot(struct player* p, short* back_buf_ptr) {
   // Second iteration: check odd cells
   for (int py = 0; py < PAINT_HEIGHT; py++) {
     for (int px = 0; px < PAINT_WIDTH; px++) {
-      if ((px + py) % 2 == 1) {  // only process odd cells
+      if ((px + py) % 2 == 1) {
         int sprite_idx = py * PAINT_WIDTH + px;
         int colour = paint_sprite[sprite_idx];
-   
-        // Check if pixel is not white (0xffff)
         if (colour != 0xffff) {
-          int screen_x = p->x + px - PAINT_WIDTH / 2;
-          int screen_y = p->y + py - PAINT_HEIGHT / 2;
-   
-          // Check bounds
-          if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
-              screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
-   
-            plot_pixel(screen_x, screen_y, (p->colour), back_buf_ptr);
-            background[screen_y * SCREEN_W + screen_x] = p->colour;
-   
-            p->ammo--;
-            if (p->ammo <= 0) return;  // exit when out of ammo
+          if (shift < 0) {
+            int screen_x = p->x + (px >> -shift) - (scaled_width >> 1);
+            int screen_y = p->y + (py >> -shift) - (scaled_height >> 1);
+            if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+              plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+              background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+              p->ammo--;
+              if (p->ammo <= 0) return;
+            }
+          } else if (shift > 0) {
+            int scale = 1 << shift;
+            for (int sy = 0; sy < scale; sy++) {
+              for (int sx = 0; sx < scale; sx++) {
+                int screen_x = p->x + (px << shift) + sx - (scaled_width >> 1);
+                int screen_y = p->y + (py << shift) + sy - (scaled_height >> 1);
+                if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                    screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+                  plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+                  background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+                  p->ammo--;
+                  if (p->ammo <= 0) return;
+                }
+              }
+            }
+          } else {
+            int screen_x = p->x + px - (scaled_width >> 1);
+            int screen_y = p->y + py - (scaled_height >> 1);
+            if (screen_x >= WINDOW_START_X && screen_x <= WINDOW_END_X &&
+                screen_y >= WINDOW_START_Y && screen_y <= WINDOW_END_Y) {
+              plot_pixel(screen_x, screen_y, (p->paint_colour), back_buf_ptr);
+              background[screen_y * SCREEN_W + screen_x] = p->paint_colour;
+              p->ammo--;
+              if (p->ammo <= 0) return;
+            }
           }
         }
       }
@@ -22931,9 +22987,15 @@ beepFlag1 = 0;
 beepFlag0 = 0; 
 
   // restore player drawing values
+
+  AMMO_RECHARGE = 5;
+  
   p1->scaling_factor = 2;
+  p1->ammo = MAX_AMMO/5;
 
   p2->scaling_factor = 2;
+  p2->ammo = MAX_AMMO/5;
+
 
   p1->paint_colour = 0xF800;
   p2->paint_colour = 0x001F;
@@ -23032,9 +23094,10 @@ void KEY_ISR(void) {
     *LEDR_ptr ^= 0x2;
     restart_flag = 1;
     beepFlag3 = 0; 
-beepFlag2 = 0; 
-beepFlag1 = 0; 
-beepFlag0 = 0; 
+    beepFlag2 = 0; 
+    beepFlag1 = 0; 
+    beepFlag0 = 0; 
+    eventFlag = false;
   }
 }
 
