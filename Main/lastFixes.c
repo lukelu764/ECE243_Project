@@ -22769,6 +22769,16 @@ int chooseRandomEvent() {
   return randomEventNumber;
 }
 
+int randomEventTime(){
+     int seed = *(mtime_ptr);
+    srand(seed);
+    // Choose a random time from 105 to 210 to trigger the random event
+    int eventTriggerTime = (rand() % 211) + 105;
+    // printf("random number: %d\n", randomEventNumber);
+
+  return eventTriggerTime; 
+}
+
 int chooseRandomPlayer() {
   // Generates either a 1 or 2 to choose which player gets affected in random
   // functions
@@ -23423,11 +23433,14 @@ game_loop:
 
     // Events that affect individual players are drawn in the player boxes
     int player1windowx = 7;
-    int player2windowx = 250;
-    int playerwindowy = 203;
+    int player2windowx = 250;         
+    int playerwindowy = 203; 
+
+    // events can randomly trigger within 105 to 210 
+    int randomEventTriggerTime = randomEventTime(); 
 
     // TRIGGER RANDOM EVENT
-    if (progressx >= 160 && eventFlag == false) {
+    if (progressx >= randomEventTriggerTime && eventFlag == false) {
       // raise flag
       eventFlag = true;
       // run random event
