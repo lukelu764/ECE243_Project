@@ -1,6 +1,6 @@
 // Main Program CPULator Version
 // No paintbrush sprite
-// Last saved 3/30 6:49 PM  
+// Last saved 3/30 7:08 PM 
  
 // Latest changes 
 // picked a progressx increment value that aligns with actual time in real life   
@@ -10,7 +10,7 @@
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
 
-// BACKGROUND
+// BACKGROUND  
 // Single 1D array for background storage (320 * 240 = 76,800 pixels)
 unsigned short background[76800] = {
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
@@ -23328,10 +23328,13 @@ int main(void) {
 // --- MAIN GAME LOOP --- //
 game_loop:
   while (!gameEnd) {
-    if (restart_flag) {
+    if (restart_flag){
       restart(back_buf_ptr, &p1, &p2);
       truereset(back_buf_ptr);  
-      restart_flag = 0;
+      restart_flag = 0; 
+  
+    *HEX3_HEX0_ptr = bit_codes[player2totalscore];
+    *HEX5_HEX4_ptr = (bit_codes[player1totalscore] << 8);
     }
 
     // --- AUDIO OUTPUT STUFF --- //  
@@ -23702,12 +23705,12 @@ game_loop:
         plot_pixel(23 + x, 38 + y, tiegameend[y * 272 + x], back_buf_ptr);
       }
     }
-  }
+  } 
 
   wait_for_vsync();
   pixel_buffer_start = *(pixel_ctrl_ptr + 1);
   back_buf_ptr = (short*)*(pixel_ctrl_ptr + 1);
-   
+     
 
   while (true) { 
     if (restart_flag) {
