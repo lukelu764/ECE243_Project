@@ -23258,7 +23258,26 @@ void play_beep(){
 }
 
 
+//AMMO BAR------------------------
+void draw_ammo_bar(struct player* p, short* back_buf_ptr, int x_start, int y_start) {
+  int bar_width = 50;
+  int bar_height = 5;
 
+  // Draw background of ammo bar
+  for (int y = y_start; y < y_start + bar_height; y++) {
+    for (int x = x_start; x < x_start + bar_width; x++) {
+      plot_pixel(x, y, 0x8410, back_buf_ptr); // white background
+    }
+  }
+
+  // Draw filled portion of ammo bar based on current ammo
+  int filled_width = (p->ammo * bar_width) / MAX_AMMO;
+  for (int y = y_start; y < y_start + bar_height; y++) {
+    for (int x = x_start; x < x_start + filled_width; x++) {
+      plot_pixel(x, y, p->colour, back_buf_ptr); // player's paint colour
+    }
+  }
+}
 
 bool run_audio_flag = false;
 
@@ -23571,6 +23590,10 @@ game_loop:
     // Draw players at NEW positions
     draw_player_1(&p1, back_buf_ptr);
     draw_player_2(&p2, back_buf_ptr);
+
+    //ammo bar
+    draw_ammo_bar(&p1, back_buf_ptr, 85, 233);
+    draw_ammo_bar(&p2, back_buf_ptr, 185, 233);
 
     // Update progress bar
     progressx = progressx + 0.07;    
