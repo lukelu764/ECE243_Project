@@ -22773,8 +22773,8 @@ int randomEventTime(){
      int seed = *(mtime_ptr);
     srand(seed);
     // Choose a random time from 105 to 210 to trigger the random event
-    int eventTriggerTime = (rand() % 211) + 105;
-    // printf("random number: %d\n", randomEventNumber);
+    int eventTriggerTime = (rand() % 106) + 105;
+    // printf("random number: %d\n", randomEventNumber);      
 
   return eventTriggerTime; 
 }
