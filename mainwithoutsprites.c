@@ -21905,8 +21905,7 @@ struct player {
 
   int score;
 
-  int player_radius;
-  int shoot_radius;
+  int scaling_factor;
 
   int ammo;
   int is_shooting;
@@ -22004,6 +22003,19 @@ void update_player_position(struct player* p) {
   p->x += p->dx;
   p->y += p->dy;
 
+
+  if (p->dx > 0) {
+    p->dx--;
+  } else if (p->dx < 0) {
+    p->dx++;
+  }
+
+  if (p->dy > 0) {
+    p->dy--;
+  } else if (p->dy < 0) {
+    p->dy++;
+  }
+
   // Clamp position to window bounds
   if (p->x < WINDOW_START_X) {
     p->x = WINDOW_START_X;
@@ -22019,8 +22031,9 @@ void update_player_position(struct player* p) {
 }
 
 void update_player_movement(struct player* p, int new_dx, int new_dy) {
-  p->dx = new_dx;
-  p->dy = new_dy;
+  int scalling_factor = 4;  // Adjust this factor to control acceleration
+  p->dx += new_dx*scalling_factor;
+  p->dy += new_dy*scalling_factor;
 }
 
 void read_keyboard_input(struct player* p) {
@@ -22722,39 +22735,31 @@ void clearPaintEvent(short* back_buf_ptr) {
 
 void increasePaintbrush(struct player* p1, struct player* p2,
                         int playerAffected) {
-  int newPlayerSize = 20;
-  int newPaintSize = 10;
 
   // Also need a random function to decide which player's paint size gets
   // changed testing by changing p1 for now
 
   if (playerAffected == 1) {
-    p1->player_radius = newPlayerSize;
-    p1->shoot_radius = newPaintSize;
+    p1->scaling_factor = 3;
   }
 
   if (playerAffected == 2) {
-    p2->player_radius = newPlayerSize;
-    p2->shoot_radius = newPaintSize;
+    p2->scaling_factor = 3;
   }
 }
 
 void decreasePaintbrush(struct player* p1, struct player* p2,
                         int playerAffected) {
-  int newPlayerSize = 10;
-  int newPaintSize = 5;
 
   // Also need a random function to decide which player's paint size gets
   // changed testing by changing p2 for now
 
   if (playerAffected == 1) {
-    p1->player_radius = newPlayerSize;
-    p1->shoot_radius = newPaintSize;
+    p1->scaling_factor = 1;
   }
 
   if (playerAffected == 2) {
-    p2->player_radius = newPlayerSize;
-    p2->shoot_radius = newPaintSize;
+    p2->scaling_factor = 1;
   }
 }
 
@@ -22926,11 +22931,9 @@ beepFlag1 = 0;
 beepFlag0 = 0; 
 
   // restore player drawing values
-  p1->player_radius = DEFAULT_PLAYER_RADIUS;
-  p1->shoot_radius = DEFAULT_SHOOT_RADIUS;
+  p1->scaling_factor = 2;
 
-  p2->player_radius = DEFAULT_PLAYER_RADIUS;
-  p2->shoot_radius = DEFAULT_SHOOT_RADIUS;
+  p2->scaling_factor = 2;
 
   p1->paint_colour = 0xF800;
   p2->paint_colour = 0x001F;
@@ -23224,8 +23227,8 @@ int main(void) {
   // --- Set up players --- //
 
   // x   y  old_x old_y dx dy colour score player_radius, shoot_radius
-  struct player p1 = {160,    120, 160, 120, 1, 0, 0xF800,0xF800, 0,   15,  7,   MAX_AMMO/5, 0, false};
-  struct player p2 = {100,    100, 100, 100, 0, 1, 0x001F,0x001F, 0,   15,  7,   MAX_AMMO/5, 0, false};
+  struct player p1 = {160,    120, 160, 120, 1, 0, 0xF800,0xF800, 0,   2,   MAX_AMMO/5, 0, false};
+  struct player p2 = {100,    100, 100, 100, 0, 1, 0x001F,0x001F, 0,   2,   MAX_AMMO/5, 0, false};
 
   set_KEY();
   setup_interrupts();
