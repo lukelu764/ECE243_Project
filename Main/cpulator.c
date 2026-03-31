@@ -1,8 +1,8 @@
 // Main Program
-// Last saved 3/31 1:35 AM
+// Last saved 3/31 10:36 AM
  
 // ----- FILES ----- //
-
+   
 // --- IMAGE FILES --- //
 // These are to be replaced with header files in the DE1-Soc Version of the code
 
@@ -22262,7 +22262,7 @@ unsigned short decreaseRechargeSprite[1800] = {
 #define DEFAULT_PLAYER_RADIUS 15
 #define DEFAULT_SHOOT_RADIUS 7
 int MAX_AMMO = 1000;
-int AMMO_RECHARGE = 5;
+int DEFAULT_AMMO_RECHARGE = 5;
 
 // --- GLOBAL VARIABLES --- //
 volatile bool gameEnd = false;
@@ -22312,6 +22312,7 @@ struct player {
   int scaling_factor;
 
   int ammo;
+  int ammo_recharge_rate;
   int is_shooting;
 
   bool left;
@@ -22401,7 +22402,7 @@ void update_player_position(struct player* p) {
     p->is_shooting--;
   }
   if (p->ammo < MAX_AMMO) {
-    p->ammo += AMMO_RECHARGE;
+    p->ammo += p->ammo_recharge_rate;
   }
 
   // Save old position before updating
@@ -24165,20 +24166,37 @@ void decreasePaintbrush(struct player* p1, struct player* p2,
     p2->scaling_factor = 1;
   }
 }
-
+   
 // INCREASE OF DECREASING SHOOT COOLDOWN
 void increaseShootCooldown(struct player* p1, struct player* p2,
                            int playerAffected) {
   // increase means that the player cannot shoot as often
   int newAmmoRecharge = 3;
-  AMMO_RECHARGE = newAmmoRecharge;
-}
+  //AMMO_RECHARGE = newAmmoRecharge;
 
+  if (playerAffected == 1) {
+    p1->ammo_recharge_rate = newAmmoRecharge;
+  }
+
+  if (playerAffected == 2) {
+    p2->ammo_recharge_rate = newAmmoRecharge;
+  }
+}
+   
 void decreaseShootCooldown(struct player* p1, struct player* p2,
                            int playerAffected) {
   // decrease means that the player can shoot more often
   int newAmmoRecharge = 7;
-  AMMO_RECHARGE = newAmmoRecharge;
+  //AMMO_RECHARGE = newAmmoRecharge;
+
+ if (playerAffected == 1) {
+    p1->ammo_recharge_rate = newAmmoRecharge;
+  } 
+
+  if (playerAffected == 2) {
+    p2->ammo_recharge_rate = newAmmoRecharge;
+  }
+
 }
 
 // SWAP PLAYER COLOURS
@@ -24337,7 +24355,9 @@ void restart(short* back_buf_ptr, struct player* p1, struct player* p2) {
 
   // restore player drawing values
 
-  AMMO_RECHARGE = 5;
+  //AMMO_RECHARGE = 5;  
+  p1->ammo_recharge_rate = 5;
+  p2->ammo_recharge_rate = 5;
 
   p1->scaling_factor = 2;
   p1->ammo = MAX_AMMO / 5;
@@ -24439,7 +24459,7 @@ void KEY_ISR(void) {
   *(KEY_ptr + 3) = pressed;  // clear
 
   if (pressed & 0x1) {  // KEY0
-    *LEDR_ptr ^= 0x2;
+    *LEDR_ptr ^= 0x1;
     restart_flag = 1;
     beepFlag3 = 0;
     beepFlag2 = 0;
@@ -24654,9 +24674,9 @@ int main(void) {
 
   // x   y  old_x old_y dx dy colour score player_radius, shoot_radius
   struct player p1 = {160,    120, 160, 120,          1, 0,    0xF800,
-                      0xF800, 0,   2,   MAX_AMMO / 5, 0, false};
+                      0xF800, 0,   2,   MAX_AMMO / 5, DEFAULT_AMMO_RECHARGE, 0, false};
   struct player p2 = {100,    100, 100, 100,          0, 1,    0x001F,
-                      0x001F, 0,   2,   MAX_AMMO / 5, 0, false};
+                      0x001F, 0,   2,   MAX_AMMO / 5,  DEFAULT_AMMO_RECHARGE, 0, false};
 
   set_KEY();
   setup_interrupts();
@@ -24728,7 +24748,7 @@ game_loop:
       randomEventTriggerTime = randomEventTime();
       // printf("%d random event number\n", randomEventTriggerTime);
 
-      *LEDR_ptr |= 0x1;  // light up LED0 to indicate end of round
+      //*LEDR_ptr |= 0x1;  // light up LED0 to indicate end of round
 
       roundNumber += 1;
       // printf("round %d done\n", roundNumber);
@@ -24786,7 +24806,7 @@ game_loop:
       int randomEvent = chooseRandomEvent();
       // printf("%d progressx\n", progressx);
       // printf("%d random event number\n", randomEvent);
-      *LEDR_ptr = (1 << 9);
+      //*LEDR_ptr = (1 << 9);
       int playerAffected = chooseRandomPlayer();
       // printf("%d player affect\n", playerAffected);
 
@@ -25027,8 +25047,8 @@ game_loop:
     draw_ammo_bar(&p1, back_buf_ptr, 85, 233);
     draw_ammo_bar(&p2, back_buf_ptr, 185, 233);
 
-    // Update progress bar
-    progressx = progressx + 0.5;
+    // Update progress bar  
+    progressx = progressx + 0.07;        
     updateProgressBar(back_buf_ptr);
 
     // Wait for vertical sync and swap buffers
@@ -25046,7 +25066,7 @@ game_loop:
   *HEX5_HEX4_ptr = (bit_codes[player1totalscore] << 8);
 
   if (player1totalscore > player2totalscore) {
-    *LEDR_ptr = 0b100000000;
+    //*LEDR_ptr = 0b100000000;
     for (int y = 0; y < 138; y++) {
       for (int x = 0; x < 272; x++) {
         plot_pixel(23 + x, 38 + y, player1end[y * 272 + x], pixel_buffer_start);
