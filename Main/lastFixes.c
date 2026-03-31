@@ -1,5 +1,5 @@
 // Main Program
-// Last saved 3/31 10:36 AM
+// Last saved 3/31 11:15 AM  
  
 // ----- FILES ----- //
    
@@ -24459,7 +24459,7 @@ void KEY_ISR(void) {
   *(KEY_ptr + 3) = pressed;  // clear
 
   if (pressed & 0x1) {  // KEY0
-    *LEDR_ptr ^= 0x2;
+    *LEDR_ptr ^= 0x1;
     restart_flag = 1;
     beepFlag3 = 0;
     beepFlag2 = 0;
@@ -24748,7 +24748,7 @@ game_loop:
       randomEventTriggerTime = randomEventTime();
       // printf("%d random event number\n", randomEventTriggerTime);
 
-      *LEDR_ptr |= 0x1;  // light up LED0 to indicate end of round
+      //*LEDR_ptr |= 0x1;  // light up LED0 to indicate end of round
 
       roundNumber += 1;
       // printf("round %d done\n", roundNumber);
@@ -24806,7 +24806,7 @@ game_loop:
       int randomEvent = chooseRandomEvent();
       // printf("%d progressx\n", progressx);
       // printf("%d random event number\n", randomEvent);
-      *LEDR_ptr = (1 << 9);
+      //*LEDR_ptr = (1 << 9);
       int playerAffected = chooseRandomPlayer();
       // printf("%d player affect\n", playerAffected);
 
@@ -25047,8 +25047,8 @@ game_loop:
     draw_ammo_bar(&p1, back_buf_ptr, 85, 233);
     draw_ammo_bar(&p2, back_buf_ptr, 185, 233);
 
-    // Update progress bar
-    progressx = progressx + 0.07;    
+    // Update progress bar  
+    progressx = progressx + 0.07;        
     updateProgressBar(back_buf_ptr);
 
     // Wait for vertical sync and swap buffers
@@ -25066,7 +25066,7 @@ game_loop:
   *HEX5_HEX4_ptr = (bit_codes[player1totalscore] << 8);
 
   if (player1totalscore > player2totalscore) {
-    *LEDR_ptr = 0b100000000;
+    //*LEDR_ptr = 0b100000000;
     for (int y = 0; y < 138; y++) {
       for (int x = 0; x < 272; x++) {
         plot_pixel(23 + x, 38 + y, player1end[y * 272 + x], pixel_buffer_start);
